@@ -1,4 +1,34 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Add debug logging
+    const DEBUG = true;
+    function debugLog(...args) {
+        if (DEBUG) {
+            console.log('[DEBUG]', ...args);
+        }
+    }
+
+    // Initialize Socket.IO connection with error handling
+    let socket;
+    try {
+        socket = io('http://localhost:3000', {
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
+        });
+
+        socket.on('connect', () => {
+            debugLog('Connected to server with socket ID:', socket.id);
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Connection error:', error);
+            debugLog('Falling back to local room management');
+        });
+    } catch (error) {
+        console.error('Socket.IO initialization error:', error);
+        debugLog('Falling back to local room management');
+    }
+    
     // Add RoomManager class at the beginning
     class RoomManager {
         constructor() {
@@ -239,13 +269,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update createGameButton click handler
     createGameButton.addEventListener('click', () => {
+        debugLog('Creating new room...');
         const newPassword = generateRoomPassword();
         const success = roomManager.createRoom(newPassword, currentUsername);
         
         if (!success) {
-            // If room creation failed (very unlikely with random passwords), try again
+            debugLog('Room creation failed, retrying...');
             createGameButton.click();
             return;
+        }
+
+        debugLog('Room created with password:', newPassword);
+        debugLog('Current players:', roomManager.getRoomPlayers(newPassword));
+
+        // Try to create room on backend if socket is available
+        if (socket && socket.connected) {
+            debugLog('Emitting createRoom event to server');
+            socket.emit('createRoom', {
+                roomId: newPassword,
+                username: currentUsername
+            });
         }
 
         roomPassword.textContent = newPassword;
@@ -307,6 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update submitPassword click handler
     submitPassword.addEventListener('click', () => {
         const enteredPassword = passwordInput.value.trim().toUpperCase();
+        debugLog('Attempting to join room:', enteredPassword);
         clearJoinError();
 
         if (!enteredPassword) {
@@ -314,24 +358,106 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Try to join room on backend if socket is available
+        if (socket && socket.connected) {
+            debugLog('Emitting joinRoom event to server');
+            socket.emit('joinRoom', {
+                roomId: enteredPassword,
+                username: currentUsername
+            });
+        }
+
         const result = roomManager.joinRoom(enteredPassword, currentUsername);
         
         if (!result.success) {
+            debugLog('Failed to join room:', result.error);
             showJoinError(result.error);
             return;
         }
 
+        debugLog('Successfully joined room. Current players:', result.room.players);
         roomPlayers = result.room.players;
         renderPlayerList();
-        switchMenu(joinRoom, createRoom); // Reuse create room view for joined rooms
+        switchMenu(joinRoom, createRoom);
         hideTitleAndDescription();
     });
 
-    // Add cleanup when leaving room
+    // Update startGame click handler
+    startGame.addEventListener('click', () => {
+        if (roomPlayers.length < 2) {
+            alert('Need at least 2 players to start the game!');
+            return;
+        }
+        if (roomPlayers.length > ROOM_CAPACITY) {
+            alert('Too many players! Maximum is ' + ROOM_CAPACITY);
+            return;
+        }
+        
+        const currentPassword = roomPassword.textContent;
+        
+        // Try to start game on backend if socket is available
+        if (socket && socket.connected) {
+            socket.emit('startGame', {
+                roomId: currentPassword
+            });
+        } else {
+            // Fallback to local game start
+            localStorage.setItem('gamePlayers', JSON.stringify(roomPlayers));
+            localStorage.setItem('roomPassword', currentPassword);
+            localStorage.setItem('gameStartTime', Date.now());
+            window.location.href = '/Play&Boom/index.html';
+        }
+    });
+
+    // Socket.IO event handlers - only add if socket is available
+    if (socket) {
+        socket.on('roomCreated', ({ roomId, players }) => {
+            debugLog('Room created event received:', { roomId, players });
+            roomPlayers = players;
+            renderPlayerList();
+        });
+
+        socket.on('playerJoined', ({ username, players }) => {
+            debugLog('Player joined event received:', { username, players });
+            roomPlayers = players;
+            renderPlayerList();
+        });
+
+        socket.on('playerLeft', ({ username, players }) => {
+            debugLog('Player left event received:', { username, players });
+            roomPlayers = players;
+            renderPlayerList();
+        });
+
+        socket.on('gameStarted', ({ players, gameState }) => {
+            debugLog('Game started event received:', { players, gameState });
+            roomPlayers = players;
+            
+            localStorage.setItem('gamePlayers', JSON.stringify(players));
+            localStorage.setItem('roomPassword', roomPassword.textContent);
+            localStorage.setItem('gameState', JSON.stringify(gameState));
+            
+            window.location.href = '/Play&Boom/index.html';
+        });
+
+        socket.on('roomError', ({ message }) => {
+            debugLog('Room error received:', message);
+            console.error('Room error:', message);
+            alert(message);
+        });
+    }
+
+    // Update cleanup when leaving room
     backToOptions.addEventListener('click', () => {
         const currentPassword = roomPassword.textContent;
         if (currentPassword && currentPassword !== 'Generating...') {
             roomManager.leaveRoom(currentPassword, currentUsername + ' (Host)');
+            if (socket && socket.connected) {
+                socket.emit('leaveRoom', {
+                    roomId: currentPassword,
+                    username: currentUsername
+                });
+            }
         }
         switchMenu(createRoom, gameOptions);
         hideTitleAndDescription();
@@ -341,6 +467,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentPassword = passwordInput.value.trim().toUpperCase();
         if (currentPassword) {
             roomManager.leaveRoom(currentPassword, currentUsername);
+            if (socket && socket.connected) {
+                socket.emit('leaveRoom', {
+                    roomId: currentPassword,
+                    username: currentUsername
+                });
+            }
         }
         switchMenu(joinRoom, gameOptions);
         hideTitleAndDescription();
@@ -378,31 +510,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const errorDiv = document.getElementById('join-error');
         if (errorDiv) errorDiv.textContent = '';
     }
-
-    // Start game button handler
-    startGame.addEventListener('click', () => {
-        if (roomPlayers.length < 2) {
-            alert('Need at least 2 players to start the game!');
-            return;
-        }
-        if (roomPlayers.length > ROOM_CAPACITY) {
-            alert('Too many players! Maximum is ' + ROOM_CAPACITY);
-            return;
-        }
-        
-        const currentPassword = roomPassword.textContent;
-        if (roomManager.startGame(currentPassword)) {
-            // Store player information in localStorage for Play&Boom to access
-            localStorage.setItem('gamePlayers', JSON.stringify(roomPlayers));
-            localStorage.setItem('roomPassword', currentPassword);
-            localStorage.setItem('gameStartTime', Date.now());
-            
-            // Redirect to Play&Boom using the correct path for GitHub Pages
-            window.location.href = '/Play&Boom/index.html';
-        } else {
-            alert('Failed to start game. Please try again.');
-        }
-    });
 
     // Add CSS styles for room status
     const style = document.createElement('style');
