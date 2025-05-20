@@ -1,4 +1,101 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Add RoomManager class at the beginning
+    class RoomManager {
+        constructor() {
+            this.activeRooms = new Map(); // Map of room passwords to room data
+            this.ROOM_STATUS = {
+                WAITING: 'waiting',
+                IN_GAME: 'in-game',
+                FINISHED: 'finished'
+            };
+        }
+
+        createRoom(password, hostUsername) {
+            if (this.activeRooms.has(password)) {
+                return false; // Room already exists
+            }
+            
+            this.activeRooms.set(password, {
+                players: [hostUsername + ' (Host)'],
+                created: Date.now(),
+                maxPlayers: ROOM_CAPACITY,
+                status: this.ROOM_STATUS.WAITING,
+                gameStartTime: null
+            });
+            return true;
+        }
+
+        joinRoom(password, username) {
+            const room = this.activeRooms.get(password);
+            if (!room) {
+                return { success: false, error: 'Room does not exist' };
+            }
+            
+            if (room.status !== this.ROOM_STATUS.WAITING) {
+                return { success: false, error: 'Game already in progress' };
+            }
+            
+            if (room.players.length >= room.maxPlayers) {
+                return { success: false, error: 'Room is full' };
+            }
+
+            if (room.players.includes(username)) {
+                return { success: false, error: 'Username already in room' };
+            }
+
+            room.players.push(username);
+            return { success: true, room };
+        }
+
+        leaveRoom(password, username) {
+            const room = this.activeRooms.get(password);
+            if (!room) return false;
+
+            const playerIndex = room.players.findIndex(p => p === username);
+            if (playerIndex === -1) return false;
+
+            room.players.splice(playerIndex, 1);
+            
+            // If room is empty, remove it
+            if (room.players.length === 0) {
+                this.activeRooms.delete(password);
+            }
+            
+            return true;
+        }
+
+        isRoomActive(password) {
+            return this.activeRooms.has(password);
+        }
+
+        getRoomPlayers(password) {
+            return this.activeRooms.get(password)?.players || [];
+        }
+
+        startGame(password) {
+            const room = this.activeRooms.get(password);
+            if (!room) return false;
+            
+            room.status = this.ROOM_STATUS.IN_GAME;
+            room.gameStartTime = Date.now();
+            return true;
+        }
+
+        endGame(password) {
+            const room = this.activeRooms.get(password);
+            if (!room) return false;
+            
+            room.status = this.ROOM_STATUS.FINISHED;
+            return true;
+        }
+
+        getRoomStatus(password) {
+            return this.activeRooms.get(password)?.status || null;
+        }
+    }
+
+    const roomManager = new RoomManager();
+
     const mainMenu = document.getElementById('main-menu');
     const gameOptions = document.getElementById('game-options');
     const createRoom = document.getElementById('create-room');
@@ -122,6 +219,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Function to render the player list in the create room menu
     function renderPlayerList() {
         playerList.innerHTML = '';
+        
+        // Add room status indicator only if there are fewer than 4 players
+        if (roomPlayers.length < ROOM_CAPACITY) {
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'room-status status-waiting';
+            statusDiv.textContent = 'Waiting for players...';
+            playerList.appendChild(statusDiv);
+        }
+        
+        // Add players list
         roomPlayers.forEach((player, idx) => {
             const div = document.createElement('div');
             div.className = 'player-name';
@@ -130,13 +237,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Use currentUsername when creating or joining a room
-    // For demo: add the creator as the first player when room is created
+    // Update createGameButton click handler
     createGameButton.addEventListener('click', () => {
         const newPassword = generateRoomPassword();
+        const success = roomManager.createRoom(newPassword, currentUsername);
+        
+        if (!success) {
+            // If room creation failed (very unlikely with random passwords), try again
+            createGameButton.click();
+            return;
+        }
+
         roomPassword.textContent = newPassword;
-        // Simulate creator joining as first player
-        roomPlayers = [currentUsername + ' (Host)'];
+        roomPlayers = roomManager.getRoomPlayers(newPassword);
         renderPlayerList();
         switchMenu(gameOptions, createRoom);
         hideTitleAndDescription();
@@ -191,14 +304,44 @@ document.addEventListener('DOMContentLoaded', () => {
         hideTitleAndDescription();
     });
 
-    // Back to options from create room
+    // Update submitPassword click handler
+    submitPassword.addEventListener('click', () => {
+        const enteredPassword = passwordInput.value.trim().toUpperCase();
+        clearJoinError();
+
+        if (!enteredPassword) {
+            showJoinError('Please enter a room password');
+            return;
+        }
+
+        const result = roomManager.joinRoom(enteredPassword, currentUsername);
+        
+        if (!result.success) {
+            showJoinError(result.error);
+            return;
+        }
+
+        roomPlayers = result.room.players;
+        renderPlayerList();
+        switchMenu(joinRoom, createRoom); // Reuse create room view for joined rooms
+        hideTitleAndDescription();
+    });
+
+    // Add cleanup when leaving room
     backToOptions.addEventListener('click', () => {
+        const currentPassword = roomPassword.textContent;
+        if (currentPassword && currentPassword !== 'Generating...') {
+            roomManager.leaveRoom(currentPassword, currentUsername + ' (Host)');
+        }
         switchMenu(createRoom, gameOptions);
         hideTitleAndDescription();
     });
 
-    // Back to options from join room
     backToOptionsJoin.addEventListener('click', () => {
+        const currentPassword = passwordInput.value.trim().toUpperCase();
+        if (currentPassword) {
+            roomManager.leaveRoom(currentPassword, currentUsername);
+        }
         switchMenu(joinRoom, gameOptions);
         hideTitleAndDescription();
     });
@@ -236,28 +379,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (errorDiv) errorDiv.textContent = '';
     }
 
-    // Submit password to join room
-    submitPassword.addEventListener('click', () => {
-        const enteredPassword = passwordInput.value.trim().toUpperCase();
-        clearJoinError();
-        if (!roomPassword.textContent || roomPassword.textContent === 'Generating...') {
-            showJoinError('No room exists. Please create a room first.');
-            return;
-        }
-        if (enteredPassword === roomPassword.textContent) {
-            if (roomPlayers.length >= ROOM_CAPACITY) {
-                showJoinError('Room is full.');
-                return;
-            }
-            // Add the joined player to the room
-            roomPlayers.push(currentUsername);
-            renderPlayerList();
-            switchMenu(joinRoom, createRoom);
-        } else {
-            showJoinError('Invalid room password. Please try again.');
-        }
-    });
-
     // Start game button handler
     startGame.addEventListener('click', () => {
         if (roomPlayers.length < 2) {
@@ -269,11 +390,46 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Store player information in localStorage for Play&Boom to access
-        localStorage.setItem('gamePlayers', JSON.stringify(roomPlayers));
-        localStorage.setItem('roomPassword', roomPassword.textContent);
-        
-        // Redirect to Play&Boom using the correct path for GitHub Pages
-        window.location.href = '/Play&Boom/index.html';
+        const currentPassword = roomPassword.textContent;
+        if (roomManager.startGame(currentPassword)) {
+            // Store player information in localStorage for Play&Boom to access
+            localStorage.setItem('gamePlayers', JSON.stringify(roomPlayers));
+            localStorage.setItem('roomPassword', currentPassword);
+            localStorage.setItem('gameStartTime', Date.now());
+            
+            // Redirect to Play&Boom using the correct path for GitHub Pages
+            window.location.href = '/Play&Boom/index.html';
+        } else {
+            alert('Failed to start game. Please try again.');
+        }
     });
+
+    // Add CSS styles for room status
+    const style = document.createElement('style');
+    style.textContent = `
+        .room-status {
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .status-waiting {
+            background-color: #4ecdc4;
+            color: white;
+        }
+        .status-in-game {
+            background-color: #ff6b6b;
+            color: white;
+        }
+        .status-finished {
+            background-color: #95a5a6;
+            color: white;
+        }
+        .status-unknown {
+            background-color: #bdc3c7;
+            color: white;
+        }
+    `;
+    document.head.appendChild(style);
 }); 
