@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Portal</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1 class="game-title main-title">Final Circuit</h1>
+    <div class="main-description">
+        Four players, head-strapped with bombs, race through lightning-fast micro-games—wiring puzzles, memory tests and logic riddles—to earn circuit tokens. Spend your tokens to twist and swap tiles on the electrified grid, steering the deadly current toward your rivals. Last survivor wins.
+    </div>
+    <div class="container">
+        <div id="main-menu" class="menu active">
+            <h1 class="game-title">Game Portal</h1>
+            <button id="play-button" class="btn">Play</button>
+        </div>
+        
+        <div id="game-options" class="menu">
+            <h2>Choose an Option</h2>
+            <div class="options-container">
+                <button id="create-game" class="btn">Create Game</button>
+                <button id="join-game" class="btn">Join Game</button>
+            </div>
+            <button id="back-button" class="btn secondary">Back</button>
+        </div>
+
+        <div id="create-room" class="menu">
+            <h2>Create New Room</h2>
+            <div class="room-info">
+                <p>Room Password:</p>
+                <div class="password-display">
+                    <span id="room-password">Generating...</span>
+                    <button id="invite-button" class="btn small">Invite/Share</button>
+                </div>
+                <div id="player-list" class="player-list"></div>
+            </div>
+            <div class="button-group">
+                <button id="start-game" class="btn">Start Game</button>
+                <button id="back-to-options" class="btn secondary">Back</button>
+            </div>
+        </div>
+
+        <div id="join-room" class="menu">
+            <h2>Join Game</h2>
+            <div class="input-group">
+                <input type="text" id="password-input" placeholder="Enter Room Password" class="text-input">
+                <button id="submit-password" class="btn">Join</button>
+            </div>
+            <button id="back-to-options-join" class="btn secondary">Back</button>
+        </div>
+
+        <div id="username-menu" class="menu">
+            <div class="avatar-section">
+                <img id="avatar-img" src="avatar1.png" alt="Avatar" class="avatar-img">
+                <button id="random-avatar" class="avatar-randomize-btn">
+                    <span>&#8635;</span>
+                </button>
+            </div>
+            <div class="username-section">
+                <label for="username-input" class="username-label">CHOOSE A CHARACTER<br>AND A NICKNAME</label>
+                <input type="text" id="username-input" class="text-input username-input" maxlength="16">
+                <button id="random-username" class="btn small">Randomize</button>
+            </div>
+            <button id="username-start" class="btn">START</button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 
