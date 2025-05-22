@@ -232,10 +232,20 @@
         function renderPlayerCardsVertical() {
             const playerListVertical = document.getElementById('player-list-vertical');
             playerListVertical.innerHTML = '';
-            players.forEach((player, idx) => {
+            // Fallback demo data if players not initialized
+            let displayPlayers = players;
+            if (!players || players.length === 0) {
+                displayPlayers = [
+                    { name: "Player 1", color: "#e74c3c", tokens: 5, alive: true },
+                    { name: "Player 2", color: "#8e44ad", tokens: 5, alive: true },
+                    { name: "Player 3", color: "#27ae60", tokens: 5, alive: true },
+                    { name: "Player 4", color: "#f1c40f", tokens: 5, alive: true }
+                ];
+            }
+            displayPlayers.forEach((player, idx) => {
                 const playerCard = document.createElement('div');
                 playerCard.className = `player-card-vertical${player.alive ? '' : ' eliminated'}`;
-                playerCard.style.background = player.color + 'cc'; // color the card by player color
+                playerCard.style.background = player.color + 'cc';
                 playerCard.innerHTML = `
                     <span class="color-dot" style="background:${player.color};"></span>
                     <div>
@@ -251,6 +261,16 @@
         function renderBoard() {
             const boardGrid = document.getElementById('board-grid');
             boardGrid.innerHTML = '';
+            // Fallback demo data if players not initialized
+            let displayPlayers = players;
+            if (!players || players.length === 0) {
+                displayPlayers = [
+                    { name: "Player 1", color: "#e74c3c" },
+                    { name: "Player 2", color: "#8e44ad" },
+                    { name: "Player 3", color: "#27ae60" },
+                    { name: "Player 4", color: "#f1c40f" }
+                ];
+            }
             for (let y = 0; y < N; y++) {
                 for (let x = 0; x < N; x++) {
                     const cell = document.createElement('div');
@@ -261,10 +281,9 @@
                         let cornerIdx = (x === 0 && y === 0) ? 0 :
                                         (x === 0 && y === N-1) ? 1 :
                                         (x === N-1 && y === N-1) ? 2 : 3;
-                        cell.style.background = players[cornerIdx]?.color + '33';
-                        cell.style.border = `2px solid ${players[cornerIdx]?.color}`;
-                        // Assign 'L' token to each corner, color-coded
-                        cell.innerHTML = `<span class="token" style="color:${players[cornerIdx]?.color};">L</span>`;
+                        cell.style.background = displayPlayers[cornerIdx]?.color + '33';
+                        cell.style.border = `2px solid ${displayPlayers[cornerIdx]?.color}`;
+                        cell.innerHTML = `<span class="token" style="color:${displayPlayers[cornerIdx]?.color};">L</span>`;
                         board[y][x] = 'L';
                     }
                     // Center
@@ -283,13 +302,11 @@
                             !board[y][x] &&
                             myPlayerIdx === currentPlayerIdx
                         ) {
-                            // Place token locally for immediate feedback
                             board[y][x] = selectedToken.symbol;
                             players[myPlayerIdx].tokens--;
                             renderBoard();
                             renderPlayerCardsVertical();
                             renderTokenTray();
-                            // Sync with server
                             socket.emit('placeToken', {
                                 roomId: myRoomId,
                                 x, y,
