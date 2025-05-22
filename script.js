@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         roomPlayers.forEach((player, idx) => {
             const div = document.createElement('div');
             div.className = 'player-name';
-            div.textContent = player;
+            div.textContent = typeof player === 'string' ? player : player.name;
             playerList.appendChild(div);
         });
     }

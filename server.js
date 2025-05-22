@@ -23,13 +23,13 @@ app.use(express.json());
 
 // Game Room Manager
 class GameRoom {
-    constructor(roomId, hostUsername) {
+    constructor(roomId, hostUsername, hostAvatar, hostColor) {
         this.roomId = roomId;
         this.hostUsername = hostUsername;
         this.players = [{
             name: hostUsername,
-            avatar: 'avatar1.png',  // Default avatar for host
-            color: '#e74c3c',      // Default color for host
+            avatar: hostAvatar || 'avatar1.png',
+            color: hostColor || '#e74c3c',
             tokens: 5,
             alive: true
         }];
@@ -42,7 +42,7 @@ class GameRoom {
         this.maxPlayers = 4;
     }
 
-    addPlayer(username) {
+    addPlayer(username, avatar, color) {
         if (this.players.length >= this.maxPlayers) {
             return false;
         }
@@ -51,10 +51,11 @@ class GameRoom {
         }
         const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
         const avatars = ['avatar1.png', 'avatar2.png', 'avatar3.png', 'avatar4.png'];
+        const idx = this.players.length % 4;
         this.players.push({
             name: username,
-            avatar: avatars[this.players.length % 4],
-            color: colors[this.players.length % 4],
+            avatar: avatar || avatars[idx],
+            color: color || colors[idx],
             tokens: 5,
             alive: true
         });
@@ -95,20 +96,20 @@ const activeRooms = new Map();
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('createRoom', ({ roomId, username }) => {
+    socket.on('createRoom', ({ roomId, username, avatar, color }) => {
         if (activeRooms.has(roomId)) {
             socket.emit('roomError', { message: 'Room already exists' });
             return;
         }
 
-        const room = new GameRoom(roomId, username);
+        const room = new GameRoom(roomId, username, avatar, color);
         activeRooms.set(roomId, room);
         socket.join(roomId);
         socket.emit('roomCreated', { roomId, players: room.players });
         console.log(`Room ${roomId} created by ${username}`);
     });
 
-    socket.on('joinRoom', ({ roomId, username }) => {
+    socket.on('joinRoom', ({ roomId, username, avatar, color }) => {
         console.log(`joinRoom called: roomId=${roomId}, username=${username}`); // Debug log
         const room = activeRooms.get(roomId);
         if (!room) {
@@ -126,7 +127,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        room.addPlayer(username);
+        room.addPlayer(username, avatar, color);
         socket.join(roomId);
 
         // Notify the joining player of the current room state
