@@ -58,10 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUsername = '';
     let currentAvatarIdx = 0;
     const avatarList = [
-        'Avatar1.jpg',
-        'Avatar2.jpg',
-        'Avatar3.jpg',
-        'Avatar4.jpg'
+        'avatar1.png',
+        'avatar2.png',
+        'avatar3.png',
+        'avatar4.png'
     ];
 
     function randomUsername() {
@@ -256,19 +256,8 @@ document.addEventListener('DOMContentLoaded', () => {
             debugLog('Player joined event received:', { username, players });
             roomPlayers = players;
             renderPlayerList();
-            
-            // Update current user's avatar if it was changed by the server
+            // Only transition if the joining player is the current user
             if (username === currentUsername) {
-                const player = players.find(p => p.name === username);
-                if (player && player.avatar !== avatarList[currentAvatarIdx]) {
-                    // Find the new avatar index
-                    const newAvatarIdx = avatarList.indexOf(player.avatar);
-                    if (newAvatarIdx !== -1) {
-                        currentAvatarIdx = newAvatarIdx;
-                        setAvatar(currentAvatarIdx);
-                        localStorage.setItem('currentAvatar', avatarList[currentAvatarIdx]);
-                    }
-                }
                 switchMenu(joinRoom, createRoom);
                 hideTitleAndDescription();
             }
