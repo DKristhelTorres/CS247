@@ -243,13 +243,12 @@
 
         // Render player cards vertically on the left
         function renderPlayerCardsVertical() {
+            console.log("DEBUG: players array in renderPlayerCardsVertical", players);
             const playerListVertical = document.getElementById('player-list-vertical');
             playerListVertical.innerHTML = '';
-            
-            // Only show actual players in the room
-            let displayPlayers = players;
-            if (!players || players.length === 0) {
-                // If no players data yet, show empty state
+            let displayPlayers = players.filter(Boolean);
+            console.log('Number of players (status):', displayPlayers.length, displayPlayers);
+            if (!displayPlayers || displayPlayers.length === 0) {
                 const emptyState = document.createElement('div');
                 emptyState.style.textAlign = 'center';
                 emptyState.style.padding = '20px';
@@ -258,8 +257,8 @@
                 playerListVertical.appendChild(emptyState);
                 return;
             }
-
-            displayPlayers.forEach((player, idx) => {
+            // Render a card for every player (up to 4)
+            displayPlayers.slice(0, 4).forEach((player, idx) => {
                 const playerCard = document.createElement('div');
                 playerCard.className = `player-card-vertical${player.alive ? '' : ' eliminated'}`;
                 playerCard.style.background = player.color + 'cc';
@@ -282,44 +281,41 @@
         }
 
         function renderBoard() {
+            console.log("DEBUG: players array in renderBoard", players);
             const boardGrid = document.getElementById('board-grid');
             boardGrid.innerHTML = '';
-            
-            // Only use actual players for board corners
-            let displayPlayers = players;
-            if (!players || players.length === 0) {
-                // If no players data yet, show empty board
-                for (let y = 0; y < N; y++) {
-                    for (let x = 0; x < N; x++) {
-                        const cell = document.createElement('div');
-                        cell.className = 'grid-cell';
-                        if (x === Math.floor(N/2) && y === Math.floor(N/2)) {
-                            cell.classList.add('center');
-                        }
-                        boardGrid.appendChild(cell);
-                    }
-                }
-                return;
+            let displayPlayers = players.filter(Boolean);
+            console.log('Number of players (board):', displayPlayers.length, displayPlayers);
+            // Map player count to corner positions (use [y, x] for grid)
+            const cornerPositions = [
+                [0, 0],         // Player 0: Top-left
+                [0, N-1],       // Player 1: Top-right
+                [N-1, N-1],     // Player 2: Bottom-right
+                [N-1, 0]        // Player 3: Bottom-left
+            ];
+            // Assign each player to a corner in order
+            let playerCornerMap = {};
+            for (let i = 0; i < displayPlayers.length && i < 4; i++) {
+                const [y, x] = cornerPositions[i];
+                playerCornerMap[`${y},${x}`] = displayPlayers[i];
             }
-
             for (let y = 0; y < N; y++) {
                 for (let x = 0; x < N; x++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
                     // Corners
-                    if ((x === 0 && y === 0) || (x === 0 && y === N-1) || (x === N-1 && y === 0) || (x === N-1 && y === N-1)) {
+                    if ((y === 0 && x === 0) || (y === 0 && x === N-1) || (y === N-1 && x === N-1) || (y === N-1 && x === 0)) {
                         cell.classList.add('corner');
-                        let cornerIdx = (x === 0 && y === 0) ? 0 :
-                                        (x === 0 && y === N-1) ? 1 :
-                                        (x === N-1 && y === N-1) ? 2 : 3;
-                        // Defensive: Only color corner if there's a player for that position
-                        if (displayPlayers && displayPlayers.length > cornerIdx && displayPlayers[cornerIdx]) {
-                            cell.style.background = displayPlayers[cornerIdx].color + '33';
-                            cell.style.border = `2px solid ${displayPlayers[cornerIdx].color}`;
-                            cell.innerHTML = `<span class="token" style="color:${displayPlayers[cornerIdx].color};">L</span>`;
+                        const player = playerCornerMap[`${y},${x}`];
+                        if (player) {
+                            cell.style.background = player.color + '33';
+                            cell.style.border = `2px solid ${player.color}`;
+                            cell.innerHTML = `<span class=\"token\" style=\"color:${player.color};\">L</span>`;
                             board[y][x] = 'L';
                         } else {
                             cell.innerHTML = '';
+                            cell.style.background = '#eee';
+                            cell.style.border = '2px solid #888';
                         }
                     }
                     // Center
@@ -328,18 +324,18 @@
                     }
                     // Token
                     if (board[y][x] && !cell.innerHTML) {
-                        cell.innerHTML = `<span class="token">${board[y][x]}</span>`;
+                        cell.innerHTML = `<span class=\"token\">${board[y][x]}</span>`;
                     }
                     cell.onclick = () => {
                         if (
                             selectedToken &&
-                            players[myPlayerIdx]?.tokens > 0 &&
-                            !((x === 0 && y === 0) || (x === 0 && y === N-1) || (x === N-1 && y === 0) || (x === N-1 && y === N-1)) &&
+                            displayPlayers[myPlayerIdx]?.tokens > 0 &&
+                            !((y === 0 && x === 0) || (y === 0 && x === N-1) || (y === N-1 && x === 0) || (y === N-1 && x === N-1)) &&
                             !board[y][x] &&
                             myPlayerIdx === currentPlayerIdx
                         ) {
                             board[y][x] = selectedToken.symbol;
-                            players[myPlayerIdx].tokens--;
+                            displayPlayers[myPlayerIdx].tokens--;
                             renderBoard();
                             renderPlayerCardsVertical();
                             renderTokenTray();
@@ -372,9 +368,27 @@
         }
 
         // Socket.IO event handlers
-        socket.on('gameStarted', ({ board: newBoard, playersState, currentTurn }) => {
-            board = newBoard;
-            players = playersState;
+        socket.on('gameStarted', ({ board: newBoard, players, currentTurn }) => {
+            console.log('SOCKET gameStarted players:', players);
+            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+            players = players.map((player, idx) => {
+                if (typeof player === 'string') {
+                    return {
+                        name: player,
+                        color: colors[idx % 4],
+                        avatar: 'avatar1.png',
+                        tokens: 5,
+                        alive: true
+                    };
+                } else {
+                    return {
+                        ...player,
+                        color: player.color || colors[idx % 4],
+                        avatar: player.avatar,
+                        name: player.name
+                    };
+                }
+            });
             currentPlayerIdx = currentTurn;
             const myName = localStorage.getItem('username');
             myPlayerIdx = players.findIndex(p => p.name === myName);
@@ -383,9 +397,27 @@
             renderTokenTray();
         });
 
-        socket.on('gameUpdate', ({ board: newBoard, playersState, currentTurn }) => {
-            board = newBoard;
-            players = playersState;
+        socket.on('gameUpdate', ({ board: newBoard, players, currentTurn }) => {
+            console.log('SOCKET gameUpdate players:', players);
+            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+            players = players.map((player, idx) => {
+                if (typeof player === 'string') {
+                    return {
+                        name: player,
+                        color: colors[idx % 4],
+                        avatar: 'avatar1.png',
+                        tokens: 5,
+                        alive: true
+                    };
+                } else {
+                    return {
+                        ...player,
+                        color: player.color || colors[idx % 4],
+                        avatar: player.avatar,
+                        name: player.name
+                    };
+                }
+            });
             currentPlayerIdx = currentTurn;
             renderPlayerCardsVertical();
             renderBoard();
@@ -401,22 +433,29 @@
                 if (!res.ok) return;
                 const data = await res.json();
                 if (data && Array.isArray(data.players)) {
-                    // If players are objects (with name/avatar/color), use as is
-                    // If players are just names, map to objects with default avatars/colors
-                    if (typeof data.players[0] === 'string') {
-                        const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
-                        const avatars = ['avatar1.png', 'avatar2.png', 'avatar3.png', 'avatar4.png'];
-                        players = data.players.map((name, idx) => ({
-                            name,
-                            color: colors[idx % 4],
-                            avatar: avatars[idx % 4],
-                            tokens: 5,
-                            alive: true
-                        }));
-                    } else {
-                        players = data.players;
-                    }
+                    // Always use backend-provided name and avatar, only assign color if missing
+                    const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+                    players = data.players.map((player, idx) => {
+                        if (typeof player === 'string') {
+                            // Fallback for legacy string-only player
+                            return {
+                                name: player,
+                                color: colors[idx % 4],
+                                avatar: 'avatar1.png',
+                                tokens: 5,
+                                alive: true
+                            };
+                        } else {
+                            return {
+                                ...player,
+                                color: player.color || colors[idx % 4], // Only assign color if not set
+                                avatar: player.avatar, // Always use backend avatar
+                                name: player.name      // Always use backend name
+                            };
+                        }
+                    });
                     renderPlayerCardsVertical();
+                    renderBoard();
                 }
             } catch (e) {
                 // Ignore fetch errors
