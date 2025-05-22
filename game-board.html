@@ -255,20 +255,51 @@
                 cinematicText.classList.add('active');
             }, 400);
         }
-        function nextCinematic() {
-            if (idx < narrative.length) {
-                showCinematicLine(idx);
-                idx++;
-                setTimeout(() => {
-                    cinematicText.classList.remove('active');
-                    setTimeout(nextCinematic, 1300); // fade out before next
-                }, 4500); // show each line for 4.5s
-            } else {
-                cinematicDiv.style.display = 'none';
-                document.querySelector('.game-board').classList.add('active');
+
+        // Add skip vote tracking logic
+        const skipButton = document.getElementById('skip-button');
+        let hasVoted = false;
+        let cinematicSkipped = false;
+
+        function hideCinematicAndShowBoard() {
+            if (cinematicSkipped) return;
+            cinematicSkipped = true;
+            cinematicDiv.style.display = 'none';
+            document.querySelector('.game-board').classList.add('active');
+            // Only fetch players if not already loaded
+            if (!players || players.length === 0) {
                 fetchPlayersForRoom();
+            } else {
+                renderPlayerCardsVertical();
+                renderBoard();
+                renderTokenTray();
             }
+            // Reset skip button state
+            skipButton.innerHTML = 'SKIP';
+            skipButton.style.opacity = '1';
+            skipButton.style.cursor = 'pointer';
+            hasVoted = false;
         }
+
+        skipButton.onclick = () => {
+            if (hasVoted || cinematicSkipped) return;
+            const username = localStorage.getItem('username');
+            socket.emit('skipVote', {
+                roomId: myRoomId,
+                username: username
+            });
+            hasVoted = true;
+            skipButton.style.opacity = '0.5';
+            skipButton.style.cursor = 'not-allowed';
+        };
+
+        socket.on('skipVoteUpdate', ({ votes, required }) => {
+            skipButton.innerHTML = `SKIP <span class="vote-count">(${votes}/${required})</span>`;
+        });
+
+        socket.on('skipNarrative', () => {
+            hideCinematicAndShowBoard();
+        });
 
         // Render player cards vertically on the left
         function renderPlayerCardsVertical() {
@@ -448,33 +479,6 @@
 
         // Start cinematic on load
         nextCinematic();
-
-        // Add skip vote tracking logic
-        const skipButton = document.getElementById('skip-button');
-        let hasVoted = false;
-
-        skipButton.onclick = () => {
-            if (hasVoted) return;
-            
-            const username = localStorage.getItem('username');
-            socket.emit('skipVote', {
-                roomId: myRoomId,
-                username: username
-            });
-            hasVoted = true;
-            skipButton.style.opacity = '0.5';
-            skipButton.style.cursor = 'not-allowed';
-        };
-
-        socket.on('skipVoteUpdate', ({ votes, required }) => {
-            skipButton.innerHTML = `SKIP <span class="vote-count">(${votes}/${required})</span>`;
-        });
-
-        socket.on('skipNarrative', () => {
-            cinematicDiv.style.display = 'none';
-            document.querySelector('.game-board').classList.add('active');
-            fetchPlayersForRoom();
-        });
     </script>
 </body>
 </html> 
