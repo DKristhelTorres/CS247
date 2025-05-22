@@ -7,15 +7,44 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+        body {
+            background: #000;
+            color: #fff;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cinematic {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            z-index: 10;
+        }
+        .cinematic-text {
+            font-size: 2.2rem;
+            text-align: center;
+            max-width: 700px;
+            opacity: 0;
+            transition: opacity 0.8s;
+            letter-spacing: 1px;
+            line-height: 1.4;
+            color: #fff;
+        }
+        .cinematic-text.active {
+            opacity: 1;
+        }
         .game-board {
             display: none;
             padding: 20px;
         }
-
         .game-board.active {
             display: block;
         }
-
         .player-info {
             display: flex;
             justify-content: space-between;
@@ -24,7 +53,6 @@
             background: #2c3e50;
             border-radius: 8px;
         }
-
         .player-card {
             background: #34495e;
             padding: 15px;
@@ -33,32 +61,27 @@
             text-align: center;
             min-width: 150px;
         }
-
         .player-card.host {
             border: 2px solid #e74c3c;
         }
-
         .player-card .avatar {
             width: 50px;
             height: 50px;
             border-radius: 50%;
             margin-bottom: 10px;
         }
-
         .game-status {
             text-align: center;
             margin: 20px 0;
             font-size: 1.2em;
             color: #ecf0f1;
         }
-
         .countdown {
             font-size: 2em;
             color: #e74c3c;
             text-align: center;
             margin: 20px 0;
         }
-
         .game-area {
             background: #2c3e50;
             border-radius: 8px;
@@ -68,131 +91,76 @@
     </style>
 </head>
 <body>
-    <div class="game-board">
-        <div class="player-info" id="player-info">
-            <!-- Player cards will be dynamically added here -->
-        </div>
-
-        <div class="game-status" id="game-status">
-            Game Starting...
-        </div>
-
-        <div class="countdown" id="countdown">
-            5
-        </div>
-
-        <div class="game-area" id="game-area">
-            <!-- Game content will be added here -->
-        </div>
+    <div class="cinematic">
+        <div id="cinematic-text" class="cinematic-text"></div>
     </div>
-
+    <div class="game-board">
+        <div class="player-info" id="player-info"></div>
+        <div class="game-status" id="game-status"></div>
+        <div class="game-area" id="game-area"></div>
+    </div>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // For GitHub Pages deployment, fallback to local storage if server is not available
-            const SERVER_URL = window.location.hostname === 'localhost' 
-                ? 'http://localhost:3000'
-                : 'https://your-server-url.com'; // Replace with your actual deployed server URL
+        // Cinematic narrative lines
+        const narrative = [
+            "You are a chaotic and rather unbothered government spy. You are what they call...",
+            "A PIGEON",
+            "In your journey of making abstract nests, you had enough of fighting for crumbs in these New York streets.",
+            "Your job? Trigger in your fellow 'pigeon' mates a segfault in their surveillance system to get rid of the competition."
+        ];
+        const cinematicDiv = document.querySelector('.cinematic');
+        const cinematicText = document.getElementById('cinematic-text');
+        const gameBoard = document.querySelector('.game-board');
+        const playerInfo = document.getElementById('player-info');
+        const gameStatus = document.getElementById('game-status');
+        const gameArea = document.getElementById('game-area');
 
-            let socket;
-            try {
-                socket = io(SERVER_URL, {
-                    reconnection: true,
-                    reconnectionAttempts: 5,
-                    reconnectionDelay: 1000,
-                    timeout: 10000
-                });
-            } catch (error) {
-                console.error('Socket.IO initialization error:', error);
-            }
-
-            const gameBoard = document.querySelector('.game-board');
-            const playerInfo = document.getElementById('player-info');
-            const gameStatus = document.getElementById('game-status');
-            const countdown = document.getElementById('countdown');
-            const gameArea = document.getElementById('game-area');
-
-            // Get game data from localStorage
-            const gamePlayers = JSON.parse(localStorage.getItem('gamePlayers') || '[]');
-            const roomPassword = localStorage.getItem('roomPassword');
-            const gameState = JSON.parse(localStorage.getItem('gameState') || '{}');
-            const activeRooms = JSON.parse(localStorage.getItem('activeRooms') || '{}');
-
-            // Show game board
-            gameBoard.classList.add('active');
-
-            // Render player cards
-            function renderPlayerCards() {
-                playerInfo.innerHTML = '';
-                const players = activeRooms[roomPassword]?.players || gamePlayers;
-                players.forEach(player => {
-                    const isHost = player.includes('(Host)');
-                    const playerCard = document.createElement('div');
-                    playerCard.className = `player-card ${isHost ? 'host' : ''}`;
-                    playerCard.innerHTML = `
-                        <img src="avatar1.png" alt="Avatar" class="avatar">
-                        <div class="player-name">${player}</div>
-                        <div class="player-status">${isHost ? 'Host' : 'Player'}</div>
-                    `;
-                    playerInfo.appendChild(playerCard);
-                });
-            }
-
-            // Start countdown
-            function startCountdown() {
-                let timeLeft = 5;
-                countdown.textContent = timeLeft;
-
-                const timer = setInterval(() => {
-                    timeLeft--;
-                    countdown.textContent = timeLeft;
-
-                    if (timeLeft <= 0) {
-                        clearInterval(timer);
-                        countdown.style.display = 'none';
-                        gameStatus.textContent = 'Game Started!';
-                        initializeGame();
-                    }
-                }, 1000);
-            }
-
-            // Initialize game
-            function initializeGame() {
+        // Show cinematic sequence
+        let idx = 0;
+        function showCinematicLine(i) {
+            cinematicText.classList.remove('active');
+            setTimeout(() => {
+                cinematicText.textContent = narrative[i];
+                cinematicText.classList.add('active');
+            }, 400);
+        }
+        function nextCinematic() {
+            if (idx < narrative.length) {
+                showCinematicLine(idx);
+                idx++;
+                setTimeout(() => {
+                    cinematicText.classList.remove('active');
+                    setTimeout(nextCinematic, 800); // fade out before next
+                }, 2600); // show each line for 2.6s
+            } else {
+                // Hide cinematic and show game board
+                cinematicDiv.style.display = 'none';
+                gameBoard.classList.add('active');
+                // Optionally, initialize your game here
+                renderPlayerCards();
+                gameStatus.textContent = 'Game Started!';
                 gameArea.innerHTML = '<h2>Game Board</h2><p>Game initialization in progress...</p>';
-                // Update room status in localStorage
-                if (activeRooms[roomPassword]) {
-                    activeRooms[roomPassword].status = 'in_progress';
-                    localStorage.setItem('activeRooms', JSON.stringify(activeRooms));
-                }
             }
+        }
 
-            // Socket event handlers
-            if (socket) {
-                socket.on('connect', () => {
-                    console.log('Connected to game server');
-                    if (roomPassword) {
-                        socket.emit('joinGame', { roomId: roomPassword });
-                    }
-                });
-
-                socket.on('gameUpdate', (data) => {
-                    console.log('Game update received:', data);
-                    // Handle game updates from server
-                });
-            }
-
-            // Initial setup
-            renderPlayerCards();
-            startCountdown();
-
-            // Handle page unload
-            window.addEventListener('beforeunload', () => {
-                // Clean up room data if needed
-                if (activeRooms[roomPassword] && activeRooms[roomPassword].status === 'finished') {
-                    delete activeRooms[roomPassword];
-                    localStorage.setItem('activeRooms', JSON.stringify(activeRooms));
-                }
+        // Render player cards (same as before)
+        function renderPlayerCards() {
+            playerInfo.innerHTML = '';
+            const gamePlayers = JSON.parse(localStorage.getItem('gamePlayers') || '[]');
+            gamePlayers.forEach(player => {
+                const isHost = player.includes('(Host)');
+                const playerCard = document.createElement('div');
+                playerCard.className = `player-card ${isHost ? 'host' : ''}`;
+                playerCard.innerHTML = `
+                    <img src="avatar1.png" alt="Avatar" class="avatar">
+                    <div class="player-name">${player}</div>
+                    <div class="player-status">${isHost ? 'Host' : 'Player'}</div>
+                `;
+                playerInfo.appendChild(playerCard);
             });
-        });
+        }
+
+        // Start cinematic on load
+        nextCinematic();
     </script>
 </body>
 </html> 
