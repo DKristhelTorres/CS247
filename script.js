@@ -210,6 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
             roomId: enteredPassword,
             username: currentUsername
         });
+        // Do NOT update UI here! Wait for playerJoined event.
     });
 
     startGame.addEventListener('click', () => {
@@ -242,6 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
             debugLog('Player joined event received:', { username, players });
             roomPlayers = players;
             renderPlayerList();
+            switchMenu(joinRoom, createRoom);
+            hideTitleAndDescription();
         });
         socket.on('playerLeft', ({ username, players }) => {
             debugLog('Player left event received:', { username, players });
