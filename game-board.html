@@ -312,12 +312,14 @@
                         let cornerIdx = (x === 0 && y === 0) ? 0 :
                                         (x === 0 && y === N-1) ? 1 :
                                         (x === N-1 && y === N-1) ? 2 : 3;
-                        // Only color corner if there's a player for that position
-                        if (displayPlayers[cornerIdx]) {
+                        // Defensive: Only color corner if there's a player for that position
+                        if (displayPlayers && displayPlayers.length > cornerIdx && displayPlayers[cornerIdx]) {
                             cell.style.background = displayPlayers[cornerIdx].color + '33';
                             cell.style.border = `2px solid ${displayPlayers[cornerIdx].color}`;
                             cell.innerHTML = `<span class="token" style="color:${displayPlayers[cornerIdx].color};">L</span>`;
                             board[y][x] = 'L';
+                        } else {
+                            cell.innerHTML = '';
                         }
                     }
                     // Center
