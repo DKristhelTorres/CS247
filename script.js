@@ -199,17 +199,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     submitPassword.addEventListener('click', () => {
-        const enteredPassword = passwordInput.value.trim().toUpperCase();
+        let enteredPassword = passwordInput.value.trim().toUpperCase();
         debugLog('Attempting to join room:', enteredPassword);
         clearJoinError();
         if (!enteredPassword) {
             showJoinError('Please enter a room password');
             return;
         }
+        // Ensure unique username per device
+        let uniqueUsername = currentUsername;
+        if (roomPlayers.includes(uniqueUsername)) {
+            // Append a random 4-digit suffix if username already exists in the room
+            uniqueUsername = `${currentUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
+            debugLog('Username already in room, using unique username:', uniqueUsername);
+        }
         socket.emit('joinRoom', {
             roomId: enteredPassword,
-            username: currentUsername
+            username: uniqueUsername
         });
+        // Update currentUsername to the unique one for this session
+        currentUsername = uniqueUsername;
         // Do NOT update UI here! Wait for playerJoined event.
     });
 
@@ -243,8 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
             debugLog('Player joined event received:', { username, players });
             roomPlayers = players;
             renderPlayerList();
-            switchMenu(joinRoom, createRoom);
-            hideTitleAndDescription();
+            // Only transition if the joining player is the current user
+            if (username === currentUsername) {
+                switchMenu(joinRoom, createRoom);
+                hideTitleAndDescription();
+            }
         });
         socket.on('playerLeft', ({ username, players }) => {
             debugLog('Player left event received:', { username, players });
