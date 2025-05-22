@@ -48,9 +48,16 @@
             cursor: pointer;
             font-size: 1rem;
             transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         .skip-button:hover {
             background: rgba(255, 255, 255, 0.3);
+        }
+        .skip-button .vote-count {
+            font-size: 0.8em;
+            opacity: 0.8;
         }
         .game-board {
             width: 100vw;
@@ -443,17 +450,31 @@
         nextCinematic();
 
         // Add skip vote tracking logic
-        let skipVotes = 0;
         const skipButton = document.getElementById('skip-button');
+        let hasVoted = false;
+
         skipButton.onclick = () => {
-            skipVotes++;
-            const totalPlayers = players.filter(Boolean).length;
-            if (skipVotes >= Math.ceil(totalPlayers / 2)) {
-                cinematicDiv.style.display = 'none';
-                document.querySelector('.game-board').classList.add('active');
-                fetchPlayersForRoom();
-            }
+            if (hasVoted) return;
+            
+            const username = localStorage.getItem('username');
+            socket.emit('skipVote', {
+                roomId: myRoomId,
+                username: username
+            });
+            hasVoted = true;
+            skipButton.style.opacity = '0.5';
+            skipButton.style.cursor = 'not-allowed';
         };
+
+        socket.on('skipVoteUpdate', ({ votes, required }) => {
+            skipButton.innerHTML = `SKIP <span class="vote-count">(${votes}/${required})</span>`;
+        });
+
+        socket.on('skipNarrative', () => {
+            cinematicDiv.style.display = 'none';
+            document.querySelector('.game-board').classList.add('active');
+            fetchPlayersForRoom();
+        });
     </script>
 </body>
 </html> 
