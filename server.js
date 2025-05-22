@@ -18,7 +18,15 @@ const io = new Server(server, {
     }
 });
 
-app.use(cors());
+app.use(cors({
+    origin: [
+        "https://dkristheltorres.github.io",
+        "https://dkristheltorres.github.io/CS247",
+        "https://dkristheltorres.github.io/CS247/",
+        "http://localhost:3000"
+    ],
+    credentials: true
+}));
 app.use(express.json());
 
 // Game Room Manager
