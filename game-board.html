@@ -368,11 +368,11 @@
         }
 
         // Socket.IO event handlers
-        socket.on('gameStarted', ({ board: newBoard, players, currentTurn }) => {
-            console.log('SOCKET gameStarted players:', players);
-            // Normalize player objects and assign color if missing
+        socket.on('gameStarted', ({ board: newBoard, players: eventPlayers, currentTurn }) => {
+            console.log('SOCKET gameStarted eventPlayers:', eventPlayers, 'existing players:', players);
+            let usePlayers = eventPlayers && eventPlayers.length ? eventPlayers : players;
             const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
-            players = players.map((player, idx) => {
+            players = usePlayers.map((player, idx) => {
                 if (typeof player === 'string') {
                     return {
                         name: player,
@@ -398,11 +398,11 @@
             renderTokenTray();
         });
 
-        socket.on('gameUpdate', ({ board: newBoard, players, currentTurn }) => {
-            console.log('SOCKET gameUpdate players:', players);
-            // Normalize player objects and assign color if missing
+        socket.on('gameUpdate', ({ board: newBoard, players: eventPlayers, currentTurn }) => {
+            console.log('SOCKET gameUpdate eventPlayers:', eventPlayers, 'existing players:', players);
+            let usePlayers = eventPlayers && eventPlayers.length ? eventPlayers : players;
             const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
-            players = players.map((player, idx) => {
+            players = usePlayers.map((player, idx) => {
                 if (typeof player === 'string') {
                     return {
                         name: player,
