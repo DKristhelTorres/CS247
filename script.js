@@ -41,34 +41,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to enable local mode
     function enableLocalMode() {
-        // Store rooms in localStorage
-        if (!localStorage.getItem('activeRooms')) {
-            localStorage.setItem('activeRooms', JSON.stringify({}));
+        // Initialize shared rooms storage if not exists
+        if (!window.localStorage.getItem('activeRooms')) {
+            window.localStorage.setItem('activeRooms', JSON.stringify({}));
         }
     }
 
-    // Function to check if a room exists in local storage
+    // Function to get active rooms
+    function getActiveRooms() {
+        return JSON.parse(window.localStorage.getItem('activeRooms') || '{}');
+    }
+
+    // Function to save active rooms
+    function saveActiveRooms(rooms) {
+        window.localStorage.setItem('activeRooms', JSON.stringify(rooms));
+        // Dispatch event to notify other tabs
+        window.localStorage.setItem('roomsUpdate', Date.now().toString());
+    }
+
+    // Listen for changes in other tabs
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'roomsUpdate') {
+            debugLog('Rooms updated in another tab');
+            const activeRooms = getActiveRooms();
+            if (roomPassword.textContent) {
+                roomPlayers = activeRooms[roomPassword.textContent]?.players || [];
+                renderPlayerList();
+            }
+        }
+    });
+
+    // Function to check if a room exists
     function localRoomExists(password) {
-        const activeRooms = JSON.parse(localStorage.getItem('activeRooms') || '{}');
+        const activeRooms = getActiveRooms();
         return !!activeRooms[password];
     }
 
-    // Function to create a room in local storage
+    // Function to create a room
     function createLocalRoom(password, username) {
-        const activeRooms = JSON.parse(localStorage.getItem('activeRooms') || '{}');
+        const activeRooms = getActiveRooms();
+        if (activeRooms[password]) {
+            return false;
+        }
+        
         activeRooms[password] = {
             players: [username + ' (Host)'],
             created: Date.now(),
             status: 'waiting'
         };
-        localStorage.setItem('activeRooms', JSON.stringify(activeRooms));
+        saveActiveRooms(activeRooms);
+        debugLog('Room created:', password, activeRooms[password]);
         return true;
     }
 
-    // Function to join a room in local storage
+    // Function to join a room
     function joinLocalRoom(password, username) {
-        const activeRooms = JSON.parse(localStorage.getItem('activeRooms') || '{}');
+        const activeRooms = getActiveRooms();
         const room = activeRooms[password];
+        
+        debugLog('Attempting to join room:', password, 'Current rooms:', activeRooms);
         
         if (!room) {
             return { success: false, error: 'Room does not exist' };
@@ -83,7 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         room.players.push(username);
-        localStorage.setItem('activeRooms', JSON.stringify(activeRooms));
+        saveActiveRooms(activeRooms);
+        debugLog('Successfully joined room:', password, room);
         return { success: true, room };
     }
 
