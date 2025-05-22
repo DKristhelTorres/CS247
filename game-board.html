@@ -243,13 +243,11 @@
 
         // Render player cards vertically on the left
         function renderPlayerCardsVertical() {
+            console.log("DEBUG: players array in renderPlayerCardsVertical", players);
             const playerListVertical = document.getElementById('player-list-vertical');
             playerListVertical.innerHTML = '';
-            
-            // Only show actual players in the room
-            let displayPlayers = players;
-            if (!players || players.length === 0) {
-                // If no players data yet, show empty state
+            let displayPlayers = players.filter(Boolean);
+            if (!displayPlayers || displayPlayers.length === 0) {
                 const emptyState = document.createElement('div');
                 emptyState.style.textAlign = 'center';
                 emptyState.style.padding = '20px';
@@ -258,7 +256,6 @@
                 playerListVertical.appendChild(emptyState);
                 return;
             }
-
             displayPlayers.forEach((player, idx) => {
                 const playerCard = document.createElement('div');
                 playerCard.className = `player-card-vertical${player.alive ? '' : ' eliminated'}`;
@@ -282,13 +279,11 @@
         }
 
         function renderBoard() {
+            console.log("DEBUG: players array in renderBoard", players);
             const boardGrid = document.getElementById('board-grid');
             boardGrid.innerHTML = '';
-            
-            // Only use actual players for board corners
-            let displayPlayers = players;
-            if (!players || players.length === 0) {
-                // If no players data yet, show empty board
+            let displayPlayers = players.filter(Boolean);
+            if (!displayPlayers || displayPlayers.length === 0) {
                 for (let y = 0; y < N; y++) {
                     for (let x = 0; x < N; x++) {
                         const cell = document.createElement('div');
@@ -301,7 +296,6 @@
                 }
                 return;
             }
-
             for (let y = 0; y < N; y++) {
                 for (let x = 0; x < N; x++) {
                     const cell = document.createElement('div');
@@ -312,10 +306,10 @@
                         let cornerIdx = (x === 0 && y === 0) ? 0 :
                                         (x === 0 && y === N-1) ? 1 :
                                         (x === N-1 && y === N-1) ? 2 : 3;
-                        if (players[cornerIdx]) {
-                            cell.style.background = players[cornerIdx].color + '33';
-                            cell.style.border = `2px solid ${players[cornerIdx].color}`;
-                            cell.innerHTML = `<span class=\"token\" style=\"color:${players[cornerIdx].color};\">L</span>`;
+                        if (displayPlayers[cornerIdx]) {
+                            cell.style.background = displayPlayers[cornerIdx].color + '33';
+                            cell.style.border = `2px solid ${displayPlayers[cornerIdx].color}`;
+                            cell.innerHTML = `<span class=\"token\" style=\"color:${displayPlayers[cornerIdx].color};\">L</span>`;
                             board[y][x] = 'L';
                         } else {
                             cell.innerHTML = '';
@@ -332,13 +326,13 @@
                     cell.onclick = () => {
                         if (
                             selectedToken &&
-                            players[myPlayerIdx]?.tokens > 0 &&
+                            displayPlayers[myPlayerIdx]?.tokens > 0 &&
                             !((x === 0 && y === 0) || (x === 0 && y === N-1) || (x === N-1 && y === 0) || (x === N-1 && y === N-1)) &&
                             !board[y][x] &&
                             myPlayerIdx === currentPlayerIdx
                         ) {
                             board[y][x] = selectedToken.symbol;
-                            players[myPlayerIdx].tokens--;
+                            displayPlayers[myPlayerIdx].tokens--;
                             renderBoard();
                             renderPlayerCardsVertical();
                             renderTokenTray();
