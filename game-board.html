@@ -88,7 +88,23 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const socket = io('http://localhost:3000');
+            // For GitHub Pages deployment, fallback to local storage if server is not available
+            const SERVER_URL = window.location.hostname === 'localhost' 
+                ? 'http://localhost:3000'
+                : 'https://your-server-url.com'; // Replace with your actual deployed server URL
+
+            let socket;
+            try {
+                socket = io(SERVER_URL, {
+                    reconnection: true,
+                    reconnectionAttempts: 5,
+                    reconnectionDelay: 1000,
+                    timeout: 10000
+                });
+            } catch (error) {
+                console.error('Socket.IO initialization error:', error);
+            }
+
             const gameBoard = document.querySelector('.game-board');
             const playerInfo = document.getElementById('player-info');
             const gameStatus = document.getElementById('game-status');
@@ -99,6 +115,7 @@
             const gamePlayers = JSON.parse(localStorage.getItem('gamePlayers') || '[]');
             const roomPassword = localStorage.getItem('roomPassword');
             const gameState = JSON.parse(localStorage.getItem('gameState') || '{}');
+            const activeRooms = JSON.parse(localStorage.getItem('activeRooms') || '{}');
 
             // Show game board
             gameBoard.classList.add('active');
@@ -106,7 +123,8 @@
             // Render player cards
             function renderPlayerCards() {
                 playerInfo.innerHTML = '';
-                gamePlayers.forEach(player => {
+                const players = activeRooms[roomPassword]?.players || gamePlayers;
+                players.forEach(player => {
                     const isHost = player.includes('(Host)');
                     const playerCard = document.createElement('div');
                     playerCard.className = `player-card ${isHost ? 'host' : ''}`;
@@ -132,34 +150,48 @@
                         clearInterval(timer);
                         countdown.style.display = 'none';
                         gameStatus.textContent = 'Game Started!';
-                        // Here you would initialize your actual game
                         initializeGame();
                     }
                 }, 1000);
             }
 
-            // Initialize game (placeholder for your actual game logic)
+            // Initialize game
             function initializeGame() {
                 gameArea.innerHTML = '<h2>Game Board</h2><p>Game initialization in progress...</p>';
-                // Add your game initialization logic here
+                // Update room status in localStorage
+                if (activeRooms[roomPassword]) {
+                    activeRooms[roomPassword].status = 'in_progress';
+                    localStorage.setItem('activeRooms', JSON.stringify(activeRooms));
+                }
             }
 
             // Socket event handlers
-            socket.on('connect', () => {
-                console.log('Connected to game server');
-                if (roomPassword) {
-                    socket.emit('joinGame', { roomId: roomPassword });
-                }
-            });
+            if (socket) {
+                socket.on('connect', () => {
+                    console.log('Connected to game server');
+                    if (roomPassword) {
+                        socket.emit('joinGame', { roomId: roomPassword });
+                    }
+                });
 
-            socket.on('gameUpdate', (data) => {
-                console.log('Game update received:', data);
-                // Handle game updates from server
-            });
+                socket.on('gameUpdate', (data) => {
+                    console.log('Game update received:', data);
+                    // Handle game updates from server
+                });
+            }
 
             // Initial setup
             renderPlayerCards();
             startCountdown();
+
+            // Handle page unload
+            window.addEventListener('beforeunload', () => {
+                // Clean up room data if needed
+                if (activeRooms[roomPassword] && activeRooms[roomPassword].status === 'finished') {
+                    delete activeRooms[roomPassword];
+                    localStorage.setItem('activeRooms', JSON.stringify(activeRooms));
+                }
+            });
         });
     </script>
 </body>

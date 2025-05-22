@@ -10,10 +10,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Socket.IO connection with error handling
     let socket;
     try {
-        socket = io('http://localhost:3000', {
+        // For GitHub Pages deployment, fallback to local storage if server is not available
+        const SERVER_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3000'
+            : 'https://your-server-url.com'; // Replace with your actual deployed server URL
+
+        socket = io(SERVER_URL, {
             reconnection: true,
             reconnectionAttempts: 5,
-            reconnectionDelay: 1000
+            reconnectionDelay: 1000,
+            timeout: 10000
         });
 
         socket.on('connect', () => {
@@ -23,12 +29,64 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.on('connect_error', (error) => {
             console.error('Connection error:', error);
             debugLog('Falling back to local room management');
+            // Enable local room management
+            enableLocalMode();
         });
     } catch (error) {
         console.error('Socket.IO initialization error:', error);
         debugLog('Falling back to local room management');
+        // Enable local room management
+        enableLocalMode();
     }
-    
+
+    // Function to enable local mode
+    function enableLocalMode() {
+        // Store rooms in localStorage
+        if (!localStorage.getItem('activeRooms')) {
+            localStorage.setItem('activeRooms', JSON.stringify({}));
+        }
+    }
+
+    // Function to check if a room exists in local storage
+    function localRoomExists(password) {
+        const activeRooms = JSON.parse(localStorage.getItem('activeRooms') || '{}');
+        return !!activeRooms[password];
+    }
+
+    // Function to create a room in local storage
+    function createLocalRoom(password, username) {
+        const activeRooms = JSON.parse(localStorage.getItem('activeRooms') || '{}');
+        activeRooms[password] = {
+            players: [username + ' (Host)'],
+            created: Date.now(),
+            status: 'waiting'
+        };
+        localStorage.setItem('activeRooms', JSON.stringify(activeRooms));
+        return true;
+    }
+
+    // Function to join a room in local storage
+    function joinLocalRoom(password, username) {
+        const activeRooms = JSON.parse(localStorage.getItem('activeRooms') || '{}');
+        const room = activeRooms[password];
+        
+        if (!room) {
+            return { success: false, error: 'Room does not exist' };
+        }
+        
+        if (room.players.length >= ROOM_CAPACITY) {
+            return { success: false, error: 'Room is full' };
+        }
+        
+        if (room.players.includes(username)) {
+            return { success: false, error: 'Username already in room' };
+        }
+        
+        room.players.push(username);
+        localStorage.setItem('activeRooms', JSON.stringify(activeRooms));
+        return { success: true, room };
+    }
+
     // Add RoomManager class at the beginning
     class RoomManager {
         constructor() {
@@ -271,8 +329,20 @@ document.addEventListener('DOMContentLoaded', () => {
     createGameButton.addEventListener('click', () => {
         debugLog('Creating new room...');
         const newPassword = generateRoomPassword();
-        const success = roomManager.createRoom(newPassword, currentUsername);
-        
+        let success;
+
+        if (socket && socket.connected) {
+            debugLog('Emitting createRoom event to server');
+            socket.emit('createRoom', {
+                roomId: newPassword,
+                username: currentUsername
+            });
+            success = true;
+        } else {
+            // Use local room management
+            success = createLocalRoom(newPassword, currentUsername);
+        }
+
         if (!success) {
             debugLog('Room creation failed, retrying...');
             createGameButton.click();
@@ -280,19 +350,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         debugLog('Room created with password:', newPassword);
-        debugLog('Current players:', roomManager.getRoomPlayers(newPassword));
-
-        // Try to create room on backend if socket is available
-        if (socket && socket.connected) {
-            debugLog('Emitting createRoom event to server');
-            socket.emit('createRoom', {
-                roomId: newPassword,
-                username: currentUsername
-            });
-        }
-
         roomPassword.textContent = newPassword;
-        roomPlayers = roomManager.getRoomPlayers(newPassword);
+        roomPlayers = [currentUsername + ' (Host)'];
         renderPlayerList();
         switchMenu(gameOptions, createRoom);
         hideTitleAndDescription();
@@ -358,25 +417,25 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Try to join room on backend if socket is available
+        let result;
         if (socket && socket.connected) {
             debugLog('Emitting joinRoom event to server');
             socket.emit('joinRoom', {
                 roomId: enteredPassword,
                 username: currentUsername
             });
+        } else {
+            // Use local room management
+            result = joinLocalRoom(enteredPassword, currentUsername);
+            if (!result.success) {
+                debugLog('Failed to join room:', result.error);
+                showJoinError(result.error);
+                return;
+            }
+            roomPlayers = result.room.players;
         }
 
-        const result = roomManager.joinRoom(enteredPassword, currentUsername);
-        
-        if (!result.success) {
-            debugLog('Failed to join room:', result.error);
-            showJoinError(result.error);
-            return;
-        }
-
-        debugLog('Successfully joined room. Current players:', result.room.players);
-        roomPlayers = result.room.players;
+        debugLog('Successfully joined room. Current players:', roomPlayers);
         renderPlayerList();
         switchMenu(joinRoom, createRoom);
         hideTitleAndDescription();
