@@ -34,9 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
         constructor() {
             this.activeRooms = new Map(); // Map of room passwords to room data
             this.ROOM_STATUS = {
-                WAITING: 'waiting',
-                IN_GAME: 'in-game',
-                FINISHED: 'finished'
+                WAITING: 'waiting'
+                //IN_GAME: 'in-game',
+                //FINISHED: 'finished'
             };
         }
 
@@ -397,15 +397,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Try to start game on backend if socket is available
         if (socket && socket.connected) {
+            debugLog('Starting game with players:', roomPlayers);
             socket.emit('startGame', {
-                roomId: currentPassword
+                roomId: currentPassword,
+                players: roomPlayers
             });
         } else {
             // Fallback to local game start
             localStorage.setItem('gamePlayers', JSON.stringify(roomPlayers));
             localStorage.setItem('roomPassword', currentPassword);
             localStorage.setItem('gameStartTime', Date.now());
-            window.location.href = '/Play&Boom/index.html';
+            window.location.href = 'game-board.html';
         }
     });
 
@@ -433,11 +435,14 @@ document.addEventListener('DOMContentLoaded', () => {
             debugLog('Game started event received:', { players, gameState });
             roomPlayers = players;
             
+            // Store game data in localStorage
             localStorage.setItem('gamePlayers', JSON.stringify(players));
             localStorage.setItem('roomPassword', roomPassword.textContent);
             localStorage.setItem('gameState', JSON.stringify(gameState));
+            localStorage.setItem('gameStartTime', Date.now());
             
-            window.location.href = '/Play&Boom/index.html';
+            // Redirect to game board
+            window.location.href = 'game-board.html';
         });
 
         socket.on('roomError', ({ message }) => {

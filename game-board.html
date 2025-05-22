@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play&Boom - Game Board</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        .game-board {
+            display: none;
+            padding: 20px;
+        }
+
+        .game-board.active {
+            display: block;
+        }
+
+        .player-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #2c3e50;
+            border-radius: 8px;
+        }
+
+        .player-card {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 6px;
+            color: white;
+            text-align: center;
+            min-width: 150px;
+        }
+
+        .player-card.host {
+            border: 2px solid #e74c3c;
+        }
+
+        .player-card .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-bottom: 10px;
+        }
+
+        .game-status {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 1.2em;
+            color: #ecf0f1;
+        }
+
+        .countdown {
+            font-size: 2em;
+            color: #e74c3c;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .game-area {
+            background: #2c3e50;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-board">
+        <div class="player-info" id="player-info">
+            <!-- Player cards will be dynamically added here -->
+        </div>
+
+        <div class="game-status" id="game-status">
+            Game Starting...
+        </div>
+
+        <div class="countdown" id="countdown">
+            5
+        </div>
+
+        <div class="game-area" id="game-area">
+            <!-- Game content will be added here -->
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const socket = io('http://localhost:3000');
+            const gameBoard = document.querySelector('.game-board');
+            const playerInfo = document.getElementById('player-info');
+            const gameStatus = document.getElementById('game-status');
+            const countdown = document.getElementById('countdown');
+            const gameArea = document.getElementById('game-area');
+
+            // Get game data from localStorage
+            const gamePlayers = JSON.parse(localStorage.getItem('gamePlayers') || '[]');
+            const roomPassword = localStorage.getItem('roomPassword');
+            const gameState = JSON.parse(localStorage.getItem('gameState') || '{}');
+
+            // Show game board
+            gameBoard.classList.add('active');
+
+            // Render player cards
+            function renderPlayerCards() {
+                playerInfo.innerHTML = '';
+                gamePlayers.forEach(player => {
+                    const isHost = player.includes('(Host)');
+                    const playerCard = document.createElement('div');
+                    playerCard.className = `player-card ${isHost ? 'host' : ''}`;
+                    playerCard.innerHTML = `
+                        <img src="avatar1.png" alt="Avatar" class="avatar">
+                        <div class="player-name">${player}</div>
+                        <div class="player-status">${isHost ? 'Host' : 'Player'}</div>
+                    `;
+                    playerInfo.appendChild(playerCard);
+                });
+            }
+
+            // Start countdown
+            function startCountdown() {
+                let timeLeft = 5;
+                countdown.textContent = timeLeft;
+
+                const timer = setInterval(() => {
+                    timeLeft--;
+                    countdown.textContent = timeLeft;
+
+                    if (timeLeft <= 0) {
+                        clearInterval(timer);
+                        countdown.style.display = 'none';
+                        gameStatus.textContent = 'Game Started!';
+                        // Here you would initialize your actual game
+                        initializeGame();
+                    }
+                }, 1000);
+            }
+
+            // Initialize game (placeholder for your actual game logic)
+            function initializeGame() {
+                gameArea.innerHTML = '<h2>Game Board</h2><p>Game initialization in progress...</p>';
+                // Add your game initialization logic here
+            }
+
+            // Socket event handlers
+            socket.on('connect', () => {
+                console.log('Connected to game server');
+                if (roomPassword) {
+                    socket.emit('joinGame', { roomId: roomPassword });
+                }
+            });
+
+            socket.on('gameUpdate', (data) => {
+                console.log('Game update received:', data);
+                // Handle game updates from server
+            });
+
+            // Initial setup
+            renderPlayerCards();
+            startCountdown();
+        });
+    </script>
+</body>
+</html> 
