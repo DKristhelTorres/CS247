@@ -12,9 +12,7 @@
             color: #fff;
             margin: 0;
             height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            overflow: hidden;
         }
         .cinematic {
             position: absolute;
@@ -39,18 +37,16 @@
             opacity: 1;
         }
         .game-board {
-            display: none;
             width: 100vw;
             height: 100vh;
             position: relative;
+            display: flex;
+            flex-direction: row;
         }
         .game-board.active {
             display: block;
         }
         .player-list-vertical {
-            position: absolute;
-            top: 0;
-            left: 0;
             width: 220px;
             height: 100vh;
             background: rgba(30,30,30,0.95);
@@ -59,6 +55,7 @@
             align-items: stretch;
             padding: 32px 0 32px 0;
             z-index: 2;
+            flex-shrink: 0;
         }
         .player-card-vertical {
             background: #34495e;
@@ -81,56 +78,34 @@
             border-radius: 50%;
             background: #222;
         }
-        .grid-area {
-            position: absolute;
-            left: 240px;
-            top: 0;
-            width: 520px;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: center;
-        }
-        .game-status {
-            margin-bottom: 24px;
-            color: #fff;
-            font-size: 1.3rem;
-        }
-        .game-area {
-            background: #223;
-            border-radius: 12px;
-            min-width: 400px;
-            min-height: 320px;
-            color: #fff;
-            padding: 32px;
-            font-size: 1.5rem;
-        }
         .main-board-area {
             display: flex;
             flex-direction: row;
-            align-items: flex-start;
-            gap: 32px;
-            margin: auto;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            height: 100vh;
+            gap: 48px;
         }
         #board-grid {
             display: grid;
-            grid-template-columns: repeat(7, 40px);
-            grid-template-rows: repeat(7, 40px);
-            gap: 4px;
+            grid-template-columns: repeat(7, 64px);
+            grid-template-rows: repeat(7, 64px);
+            gap: 6px;
             background: #bbb;
-            padding: 12px;
-            border-radius: 8px;
+            padding: 18px;
+            border-radius: 12px;
+            box-shadow: 0 0 24px #000a;
         }
         .grid-cell {
-            width: 40px;
-            height: 40px;
+            width: 64px;
+            height: 64px;
             background: #eee;
-            border-radius: 4px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
+            font-size: 2.2rem;
             cursor: pointer;
             position: relative;
         }
@@ -142,34 +117,38 @@
             border: 2px solid #888;
         }
         .grid-cell .token {
-            font-size: 1.5rem;
-            color: #1a237e;
+            font-size: 2.5rem;
+            color: #111;
         }
         #token-tray {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 24px;
             background: #bbb;
-            padding: 16px;
-            border-radius: 8px;
-            min-width: 60px;
+            padding: 24px 12px;
+            border-radius: 12px;
+            min-width: 72px;
+            align-items: center;
+            box-shadow: 0 0 16px #0005;
         }
         .token-piece {
-            width: 40px;
-            height: 40px;
+            width: 56px;
+            height: 56px;
             background: #fff;
             border: 2px solid #333;
-            border-radius: 4px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 1.5rem;
+            font-size: 2.2rem;
             transition: background 0.2s, border 0.2s;
+            color: #111;
         }
         .token-piece.selected {
             background: #3af;
             border: 2px solid #1a237e;
+            color: #111;
         }
     </style>
 </head>
@@ -256,6 +235,7 @@
             players.forEach((player, idx) => {
                 const playerCard = document.createElement('div');
                 playerCard.className = `player-card-vertical${player.alive ? '' : ' eliminated'}`;
+                playerCard.style.background = player.color + 'cc'; // color the card by player color
                 playerCard.innerHTML = `
                     <span class="color-dot" style="background:${player.color};"></span>
                     <div>
@@ -283,22 +263,33 @@
                                         (x === N-1 && y === N-1) ? 2 : 3;
                         cell.style.background = players[cornerIdx]?.color + '33';
                         cell.style.border = `2px solid ${players[cornerIdx]?.color}`;
+                        // Assign 'L' token to each corner, color-coded
+                        cell.innerHTML = `<span class="token" style="color:${players[cornerIdx]?.color};">L</span>`;
+                        board[y][x] = 'L';
                     }
                     // Center
                     if (x === Math.floor(N/2) && y === Math.floor(N/2)) {
                         cell.classList.add('center');
                     }
                     // Token
-                    if (board[y][x]) {
+                    if (board[y][x] && !cell.innerHTML) {
                         cell.innerHTML = `<span class="token">${board[y][x]}</span>`;
                     }
                     cell.onclick = () => {
                         if (
                             selectedToken &&
                             players[myPlayerIdx]?.tokens > 0 &&
+                            !((x === 0 && y === 0) || (x === 0 && y === N-1) || (x === N-1 && y === 0) || (x === N-1 && y === N-1)) &&
                             !board[y][x] &&
                             myPlayerIdx === currentPlayerIdx
                         ) {
+                            // Place token locally for immediate feedback
+                            board[y][x] = selectedToken.symbol;
+                            players[myPlayerIdx].tokens--;
+                            renderBoard();
+                            renderPlayerCardsVertical();
+                            renderTokenTray();
+                            // Sync with server
                             socket.emit('placeToken', {
                                 roomId: myRoomId,
                                 x, y,
