@@ -247,6 +247,7 @@
             const playerListVertical = document.getElementById('player-list-vertical');
             playerListVertical.innerHTML = '';
             let displayPlayers = players.filter(Boolean);
+            console.log('Number of players (status):', displayPlayers.length, displayPlayers);
             if (!displayPlayers || displayPlayers.length === 0) {
                 const emptyState = document.createElement('div');
                 emptyState.style.textAlign = 'center';
@@ -283,6 +284,7 @@
             const boardGrid = document.getElementById('board-grid');
             boardGrid.innerHTML = '';
             let displayPlayers = players.filter(Boolean);
+            console.log('Number of players (board):', displayPlayers.length, displayPlayers);
             if (!displayPlayers || displayPlayers.length === 0) {
                 for (let y = 0; y < N; y++) {
                     for (let x = 0; x < N; x++) {
@@ -313,6 +315,8 @@
                             board[y][x] = 'L';
                         } else {
                             cell.innerHTML = '';
+                            cell.style.background = '#eee';
+                            cell.style.border = '2px solid #888';
                         }
                     }
                     // Center
