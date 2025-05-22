@@ -26,7 +26,13 @@ class GameRoom {
     constructor(roomId, hostUsername) {
         this.roomId = roomId;
         this.hostUsername = hostUsername;
-        this.players = [hostUsername];
+        this.players = [{
+            name: hostUsername,
+            avatar: 'avatar1.png',  // Default avatar for host
+            color: '#e74c3c',      // Default color for host
+            tokens: 5,
+            alive: true
+        }];
         this.gameState = {
             status: 'waiting',
             startTime: null,
@@ -40,16 +46,24 @@ class GameRoom {
         if (this.players.length >= this.maxPlayers) {
             return false;
         }
-        if (this.players.includes(username)) {
+        if (this.players.some(p => p.name === username)) {
             return false;
         }
-        this.players.push(username);
+        const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+        const avatars = ['avatar1.png', 'avatar2.png', 'avatar3.png', 'avatar4.png'];
+        this.players.push({
+            name: username,
+            avatar: avatars[this.players.length % 4],
+            color: colors[this.players.length % 4],
+            tokens: 5,
+            alive: true
+        });
         this.gameState.scores[username] = 0;
         return true;
     }
 
     removePlayer(username) {
-        const index = this.players.indexOf(username);
+        const index = this.players.findIndex(p => p.name === username);
         if (index > -1) {
             this.players.splice(index, 1);
             delete this.gameState.scores[username];
@@ -64,7 +78,7 @@ class GameRoom {
         }
         this.gameState.status = 'in_progress';
         this.gameState.startTime = Date.now();
-        this.gameState.currentTurn = this.players[0];
+        this.gameState.currentTurn = 0;  // Index of first player
         return true;
     }
 
@@ -107,7 +121,7 @@ io.on('connection', (socket) => {
             return;
         }
 
-        if (room.players.includes(username)) {
+        if (room.players.some(p => p.name === username)) {
             socket.emit('roomError', { message: 'Username already in room' });
             return;
         }
@@ -141,7 +155,8 @@ io.on('connection', (socket) => {
         if (room.startGame()) {
             io.to(roomId).emit('gameStarted', {
                 players: room.players,
-                gameState: room.gameState
+                gameState: room.gameState,
+                currentTurn: 0
             });
             console.log(`Game started in room ${roomId}`);
         } else {

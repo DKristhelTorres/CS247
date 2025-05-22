@@ -232,26 +232,36 @@
         function renderPlayerCardsVertical() {
             const playerListVertical = document.getElementById('player-list-vertical');
             playerListVertical.innerHTML = '';
-            // Fallback demo data if players not initialized
+            
+            // Only show actual players in the room
             let displayPlayers = players;
             if (!players || players.length === 0) {
-                displayPlayers = [
-                    { name: "Player 1", color: "#e74c3c", tokens: 5, alive: true },
-                    { name: "Player 2", color: "#8e44ad", tokens: 5, alive: true },
-                    { name: "Player 3", color: "#27ae60", tokens: 5, alive: true },
-                    { name: "Player 4", color: "#f1c40f", tokens: 5, alive: true }
-                ];
+                // If no players data yet, show empty state
+                const emptyState = document.createElement('div');
+                emptyState.style.textAlign = 'center';
+                emptyState.style.padding = '20px';
+                emptyState.style.color = '#666';
+                emptyState.textContent = 'Waiting for players...';
+                playerListVertical.appendChild(emptyState);
+                return;
             }
+
             displayPlayers.forEach((player, idx) => {
                 const playerCard = document.createElement('div');
                 playerCard.className = `player-card-vertical${player.alive ? '' : ' eliminated'}`;
                 playerCard.style.background = player.color + 'cc';
+                playerCard.style.display = 'flex';
+                playerCard.style.alignItems = 'center';
+                playerCard.style.gap = '16px';
+                playerCard.style.padding = '16px';
                 playerCard.innerHTML = `
-                    <span class="color-dot" style="background:${player.color};"></span>
-                    <div>
-                        <div class="player-name">${player.name}${idx === currentPlayerIdx ? ' <b>(Turn)</b>' : ''}</div>
-                        <div class="player-status">${player.alive ? 'Alive' : 'Eliminated'}</div>
-                        <div class="player-tokens">Tokens: ${player.tokens}</div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;">
+                        <img src="${player.avatar}" alt="Avatar" class="avatar" style="width:64px;height:64px;border-radius:50%;background:#fff;object-fit:cover;box-shadow:0 0 8px #0007;">
+                        <div style="color:#fff;text-align:center;width:100%;">
+                            <div class="player-name" style="font-weight:bold;font-size:1.2em;margin-bottom:4px;">${player.name}${idx === currentPlayerIdx ? ' <span style=\'font-weight:bold\'>(Turn)</span>' : ''}</div>
+                            <div class="player-status" style="font-size:0.9em;opacity:0.8;">${player.alive ? 'Alive' : 'Eliminated'}</div>
+                            <div class="player-tokens" style="font-size:0.9em;opacity:0.8;">Tokens: ${player.tokens}</div>
+                        </div>
                     </div>
                 `;
                 playerListVertical.appendChild(playerCard);
@@ -261,16 +271,24 @@
         function renderBoard() {
             const boardGrid = document.getElementById('board-grid');
             boardGrid.innerHTML = '';
-            // Fallback demo data if players not initialized
+            
+            // Only use actual players for board corners
             let displayPlayers = players;
             if (!players || players.length === 0) {
-                displayPlayers = [
-                    { name: "Player 1", color: "#e74c3c" },
-                    { name: "Player 2", color: "#8e44ad" },
-                    { name: "Player 3", color: "#27ae60" },
-                    { name: "Player 4", color: "#f1c40f" }
-                ];
+                // If no players data yet, show empty board
+                for (let y = 0; y < N; y++) {
+                    for (let x = 0; x < N; x++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        if (x === Math.floor(N/2) && y === Math.floor(N/2)) {
+                            cell.classList.add('center');
+                        }
+                        boardGrid.appendChild(cell);
+                    }
+                }
+                return;
             }
+
             for (let y = 0; y < N; y++) {
                 for (let x = 0; x < N; x++) {
                     const cell = document.createElement('div');
@@ -281,10 +299,13 @@
                         let cornerIdx = (x === 0 && y === 0) ? 0 :
                                         (x === 0 && y === N-1) ? 1 :
                                         (x === N-1 && y === N-1) ? 2 : 3;
-                        cell.style.background = displayPlayers[cornerIdx]?.color + '33';
-                        cell.style.border = `2px solid ${displayPlayers[cornerIdx]?.color}`;
-                        cell.innerHTML = `<span class="token" style="color:${displayPlayers[cornerIdx]?.color};">L</span>`;
-                        board[y][x] = 'L';
+                        // Only color corner if there's a player for that position
+                        if (displayPlayers[cornerIdx]) {
+                            cell.style.background = displayPlayers[cornerIdx].color + '33';
+                            cell.style.border = `2px solid ${displayPlayers[cornerIdx].color}`;
+                            cell.innerHTML = `<span class="token" style="color:${displayPlayers[cornerIdx].color};">L</span>`;
+                            board[y][x] = 'L';
+                        }
                     }
                     // Center
                     if (x === Math.floor(N/2) && y === Math.floor(N/2)) {

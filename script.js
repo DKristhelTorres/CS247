@@ -80,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function setAvatar(idx) {
         avatarImg.src = avatarList[idx % avatarList.length];
         currentAvatarIdx = idx % avatarList.length;
+        localStorage.setItem('currentAvatar', avatarList[currentAvatarIdx]);
     }
 
     function generateRoomPassword() {
@@ -129,6 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         currentUsername = name;
+        localStorage.setItem('username', name);
+        localStorage.setItem('currentAvatar', avatarList[currentAvatarIdx]);
         switchMenu(usernameMenu, gameOptions);
         hideTitleAndDescription();
     });
@@ -159,9 +162,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const newPassword = generateRoomPassword();
         socket.emit('createRoom', {
             roomId: newPassword,
-            username: currentUsername
+            username: currentUsername,
+            avatar: avatarList[currentAvatarIdx]
         });
-        // Do NOT update UI here! Wait for roomCreated event.
     });
 
     const inviteButton = document.getElementById('invite-button');
@@ -215,11 +218,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         socket.emit('joinRoom', {
             roomId: enteredPassword,
-            username: uniqueUsername
+            username: uniqueUsername,
+            avatar: avatarList[currentAvatarIdx]
         });
         // Update currentUsername to the unique one for this session
         currentUsername = uniqueUsername;
-        // Do NOT update UI here! Wait for playerJoined event.
+        localStorage.setItem('username', uniqueUsername);
     });
 
     startGame.addEventListener('click', () => {
