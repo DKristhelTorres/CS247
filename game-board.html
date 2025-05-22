@@ -36,29 +36,6 @@
         .cinematic-text.active {
             opacity: 1;
         }
-        .skip-button {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .skip-button:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        .skip-button .vote-count {
-            font-size: 0.8em;
-            opacity: 0.8;
-        }
         .game-board {
             width: 100vw;
             height: 100vh;
@@ -188,7 +165,6 @@
 <body>
     <div class="cinematic">
         <div id="cinematic-text" class="cinematic-text"></div>
-        <button id="skip-button" class="skip-button">SKIP</button>
     </div>
     <div class="game-board">
         <div class="player-list-vertical" id="player-list-vertical"></div>
@@ -222,13 +198,6 @@
         const socket = io(SERVER_URL);
 
         const N = 7;
-        const cornerPositions = [
-            [0, 0],         // Top-left
-            [0, N-1],       // Top-right
-            [N-1, N-1],     // Bottom-right
-            [N-1, 0]        // Bottom-left
-        ];
-        const playerColors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
         let board = Array.from({length: N}, () => Array(N).fill(null));
         let players = [];
         let currentPlayerIdx = 0;
@@ -255,51 +224,22 @@
                 cinematicText.classList.add('active');
             }, 400);
         }
-
-        // Add skip vote tracking logic
-        const skipButton = document.getElementById('skip-button');
-        let hasVoted = false;
-        let cinematicSkipped = false;
-
-        function hideCinematicAndShowBoard() {
-            if (cinematicSkipped) return;
-            cinematicSkipped = true;
-            cinematicDiv.style.display = 'none';
-            document.querySelector('.game-board').classList.add('active');
-            // Only fetch players if not already loaded
-            if (!players || players.length === 0) {
-                fetchPlayersForRoom();
+        function nextCinematic() {
+            if (idx < narrative.length) {
+                showCinematicLine(idx);
+                idx++;
+                setTimeout(() => {
+                    cinematicText.classList.remove('active');
+                    setTimeout(nextCinematic, 1300); // fade out before next
+                }, 4500); // show each line for 4.5s
             } else {
+                cinematicDiv.style.display = 'none';
+                document.querySelector('.game-board').classList.add('active');
                 renderPlayerCardsVertical();
                 renderBoard();
                 renderTokenTray();
             }
-            // Reset skip button state
-            skipButton.innerHTML = 'SKIP';
-            skipButton.style.opacity = '1';
-            skipButton.style.cursor = 'pointer';
-            hasVoted = false;
         }
-
-        skipButton.onclick = () => {
-            if (hasVoted || cinematicSkipped) return;
-            const username = localStorage.getItem('username');
-            socket.emit('skipVote', {
-                roomId: myRoomId,
-                username: username
-            });
-            hasVoted = true;
-            skipButton.style.opacity = '0.5';
-            skipButton.style.cursor = 'not-allowed';
-        };
-
-        socket.on('skipVoteUpdate', ({ votes, required }) => {
-            skipButton.innerHTML = `SKIP <span class="vote-count">(${votes}/${required})</span>`;
-        });
-
-        socket.on('skipNarrative', () => {
-            hideCinematicAndShowBoard();
-        });
 
         // Render player cards vertically on the left
         function renderPlayerCardsVertical() {
@@ -330,12 +270,9 @@
                     <div style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;">
                         <img src="${player.avatar}" alt="Avatar" class="avatar" style="width:64px;height:64px;border-radius:50%;background:#fff;object-fit:cover;box-shadow:0 0 8px #0007;">
                         <div style="color:#fff;text-align:center;width:100%;">
-                            <div class="player-name" style="font-weight:bold;font-size:1.2em;margin-bottom:4px;">
-                                ${player.name}${idx === currentPlayerIdx ? ' <span style="font-weight:bold">(Turn)</span>' : ''}
-                            </div>
+                            <div class="player-name" style="font-weight:bold;font-size:1.2em;margin-bottom:4px;">${player.name}${idx === currentPlayerIdx ? ' <span style=\'font-weight:bold\'>(Turn)</span>' : ''}</div>
                             <div class="player-status" style="font-size:0.9em;opacity:0.8;">${player.alive ? 'Alive' : 'Eliminated'}</div>
                             <div class="player-tokens" style="font-size:0.9em;opacity:0.8;">Tokens: ${player.tokens}</div>
-                            <div class="player-corner" style="font-size:0.8em;opacity:0.7;">Corner: ${['Top-Left','Top-Right','Bottom-Right','Bottom-Left'][player.cornerIdx]}</div>
                         </div>
                     </div>
                 `;
@@ -349,11 +286,19 @@
             boardGrid.innerHTML = '';
             let displayPlayers = players.filter(Boolean);
             console.log('Number of players (board):', displayPlayers.length, displayPlayers);
+            // Map player count to corner positions (use [y, x] for grid)
+            const cornerPositions = [
+                [0, 0],         // Player 0: Top-left
+                [0, N-1],       // Player 1: Top-right
+                [N-1, N-1],     // Player 2: Bottom-right
+                [N-1, 0]        // Player 3: Bottom-left
+            ];
+            // Assign each player to a corner in order
             let playerCornerMap = {};
-            displayPlayers.forEach((player, idx) => {
-                const [y, x] = cornerPositions[player.cornerIdx];
-                playerCornerMap[`${y},${x}`] = player;
-            });
+            for (let i = 0; i < displayPlayers.length && i < 5; i++) {
+                const [y, x] = cornerPositions[i];
+                playerCornerMap[`${y},${x}`] = displayPlayers[i];
+            }
             for (let y = 0; y < N; y++) {
                 for (let x = 0; x < N; x++) {
                     const cell = document.createElement('div');
@@ -425,11 +370,25 @@
         // Socket.IO event handlers
         socket.on('gameStarted', ({ board: newBoard, players, currentTurn }) => {
             console.log('SOCKET gameStarted players:', players);
-            players = players.map((player, idx) => ({
-                ...player,
-                color: playerColors[idx % 4],
-                cornerIdx: idx, // 0-3, for mapping to cornerPositions
-            }));
+            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+            players = players.map((player, idx) => {
+                if (typeof player === 'string') {
+                    return {
+                        name: player,
+                        color: colors[idx % 4],
+                        avatar: 'avatar1.png',
+                        tokens: 5,
+                        alive: true
+                    };
+                } else {
+                    return {
+                        ...player,
+                        color: player.color || colors[idx % 4],
+                        avatar: player.avatar,
+                        name: player.name
+                    };
+                }
+            });
             currentPlayerIdx = currentTurn;
             const myName = localStorage.getItem('username');
             myPlayerIdx = players.findIndex(p => p.name === myName);
@@ -440,11 +399,25 @@
 
         socket.on('gameUpdate', ({ board: newBoard, players, currentTurn }) => {
             console.log('SOCKET gameUpdate players:', players);
-            players = players.map((player, idx) => ({
-                ...player,
-                color: playerColors[idx % 4],
-                cornerIdx: idx, // 0-3, for mapping to cornerPositions
-            }));
+            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+            players = players.map((player, idx) => {
+                if (typeof player === 'string') {
+                    return {
+                        name: player,
+                        color: colors[idx % 4],
+                        avatar: 'avatar1.png',
+                        tokens: 5,
+                        alive: true
+                    };
+                } else {
+                    return {
+                        ...player,
+                        color: player.color || colors[idx % 4],
+                        avatar: player.avatar,
+                        name: player.name
+                    };
+                }
+            });
             currentPlayerIdx = currentTurn;
             renderPlayerCardsVertical();
             renderBoard();
@@ -461,11 +434,26 @@
                 const data = await res.json();
                 if (data && Array.isArray(data.players)) {
                     // Always use backend-provided name and avatar, only assign color if missing
-                    players = data.players.map((player, idx) => ({
-                        ...player,
-                        color: player.color || playerColors[idx % 4], // Only assign color if not set
-                        cornerIdx: idx, // 0-3, for mapping to cornerPositions
-                    }));
+                    const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+                    players = data.players.map((player, idx) => {
+                        if (typeof player === 'string') {
+                            // Fallback for legacy string-only player
+                            return {
+                                name: player,
+                                color: colors[idx % 4],
+                                avatar: 'avatar1.png',
+                                tokens: 5,
+                                alive: true
+                            };
+                        } else {
+                            return {
+                                ...player,
+                                color: player.color || colors[idx % 4], // Only assign color if not set
+                                avatar: player.avatar, // Always use backend avatar
+                                name: player.name      // Always use backend name
+                            };
+                        }
+                    });
                     renderPlayerCardsVertical();
                     renderBoard();
                 }

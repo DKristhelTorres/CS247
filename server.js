@@ -48,7 +48,6 @@ class GameRoom {
             scores: {}
         };
         this.maxPlayers = 4;
-        this.skipVotes = new Set(); // Track players who voted to skip
     }
 
     addPlayer(username, avatar, color) {
@@ -190,31 +189,6 @@ io.on('connection', (socket) => {
                 });
                 console.log(`Player ${username} left room ${roomId}. Players now:`, room.players);
             }
-        }
-    });
-
-    socket.on('skipVote', ({ roomId, username }) => {
-        const room = activeRooms.get(roomId);
-        if (!room) {
-            socket.emit('roomError', { message: 'Room does not exist' });
-            return;
-        }
-
-        room.skipVotes.add(username);
-        const totalPlayers = room.players.length;
-        const requiredVotes = Math.ceil(totalPlayers / 2);
-
-        if (room.skipVotes.size >= requiredVotes) {
-            // Reset skip votes
-            room.skipVotes.clear();
-            // Notify all players to skip the narrative
-            io.to(roomId).emit('skipNarrative');
-        } else {
-            // Notify all players about the current skip vote count
-            io.to(roomId).emit('skipVoteUpdate', {
-                votes: room.skipVotes.size,
-                required: requiredVotes
-            });
         }
     });
 
