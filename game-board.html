@@ -257,7 +257,8 @@
                 playerListVertical.appendChild(emptyState);
                 return;
             }
-            displayPlayers.forEach((player, idx) => {
+            // Render a card for every player (up to 4)
+            displayPlayers.slice(0, 4).forEach((player, idx) => {
                 const playerCard = document.createElement('div');
                 playerCard.className = `player-card-vertical${player.alive ? '' : ' eliminated'}`;
                 playerCard.style.background = player.color + 'cc';
@@ -285,33 +286,31 @@
             boardGrid.innerHTML = '';
             let displayPlayers = players.filter(Boolean);
             console.log('Number of players (board):', displayPlayers.length, displayPlayers);
-            if (!displayPlayers || displayPlayers.length === 0) {
-                for (let y = 0; y < N; y++) {
-                    for (let x = 0; x < N; x++) {
-                        const cell = document.createElement('div');
-                        cell.className = 'grid-cell';
-                        if (x === Math.floor(N/2) && y === Math.floor(N/2)) {
-                            cell.classList.add('center');
-                        }
-                        boardGrid.appendChild(cell);
-                    }
-                }
-                return;
+            // Map player count to corner positions
+            const cornerPositions = [
+                [0, 0],
+                [0, N-1],
+                [N-1, N-1],
+                [N-1, 0]
+            ];
+            // Assign each player to a corner in order
+            let playerCornerMap = {};
+            for (let i = 0; i < displayPlayers.length && i < 4; i++) {
+                const [x, y] = cornerPositions[i];
+                playerCornerMap[`${x},${y}`] = displayPlayers[i];
             }
             for (let y = 0; y < N; y++) {
                 for (let x = 0; x < N; x++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
                     // Corners
-                    if ((x === 0 && y === 0) || (x === 0 && y === N-1) || (x === N-1 && y === 0) || (x === N-1 && y === N-1)) {
+                    if ((x === 0 && y === 0) || (x === 0 && y === N-1) || (x === N-1 && y === N-1) || (x === N-1 && y === 0)) {
                         cell.classList.add('corner');
-                        let cornerIdx = (x === 0 && y === 0) ? 0 :
-                                        (x === 0 && y === N-1) ? 1 :
-                                        (x === N-1 && y === N-1) ? 2 : 3;
-                        if (displayPlayers[cornerIdx]) {
-                            cell.style.background = displayPlayers[cornerIdx].color + '33';
-                            cell.style.border = `2px solid ${displayPlayers[cornerIdx].color}`;
-                            cell.innerHTML = `<span class=\"token\" style=\"color:${displayPlayers[cornerIdx].color};\">L</span>`;
+                        const player = playerCornerMap[`${x},${y}`];
+                        if (player) {
+                            cell.style.background = player.color + '33';
+                            cell.style.border = `2px solid ${player.color}`;
+                            cell.innerHTML = `<span class=\"token\" style=\"color:${player.color};\">L</span>`;
                             board[y][x] = 'L';
                         } else {
                             cell.innerHTML = '';
