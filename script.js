@@ -7,214 +7,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Initialize Socket.IO connection with error handling
-    let socket;
-    try {
-        // For GitHub Pages deployment, fallback to local storage if server is not available
-        const SERVER_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:3000'
-            : 'https://your-server-url.com'; // Replace with your actual deployed server URL
+    // Initialize Socket.IO connection for Render backend
+    const SERVER_URL = window.location.hostname === 'localhost'
+        ? 'http://localhost:3000'
+        : 'https://cs247.onrender.com';
 
-        socket = io(SERVER_URL, {
-            reconnection: true,
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000,
-            timeout: 10000
-        });
-
-        socket.on('connect', () => {
-            debugLog('Connected to server with socket ID:', socket.id);
-        });
-
-        socket.on('connect_error', (error) => {
-            console.error('Connection error:', error);
-            debugLog('Falling back to local room management');
-            // Enable local room management
-            enableLocalMode();
-        });
-    } catch (error) {
-        console.error('Socket.IO initialization error:', error);
-        debugLog('Falling back to local room management');
-        // Enable local room management
-        enableLocalMode();
-    }
-
-    // Function to enable local mode
-    function enableLocalMode() {
-        // Initialize shared rooms storage if not exists
-        if (!window.localStorage.getItem('activeRooms')) {
-            window.localStorage.setItem('activeRooms', JSON.stringify({}));
-        }
-    }
-
-    // Function to get active rooms
-    function getActiveRooms() {
-        return JSON.parse(window.localStorage.getItem('activeRooms') || '{}');
-    }
-
-    // Function to save active rooms
-    function saveActiveRooms(rooms) {
-        window.localStorage.setItem('activeRooms', JSON.stringify(rooms));
-        // Dispatch event to notify other tabs
-        window.localStorage.setItem('roomsUpdate', Date.now().toString());
-    }
-
-    // Listen for changes in other tabs
-    window.addEventListener('storage', (e) => {
-        if (e.key === 'roomsUpdate') {
-            debugLog('Rooms updated in another tab');
-            const activeRooms = getActiveRooms();
-            if (roomPassword.textContent) {
-                roomPlayers = activeRooms[roomPassword.textContent]?.players || [];
-                renderPlayerList();
-            }
-        }
+    const socket = io(SERVER_URL, {
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 10000
     });
 
-    // Function to check if a room exists
-    function localRoomExists(password) {
-        const activeRooms = getActiveRooms();
-        return !!activeRooms[password];
-    }
+    socket.on('connect', () => {
+        debugLog('Connected to server with socket ID:', socket.id);
+    });
 
-    // Function to create a room
-    function createLocalRoom(password, username) {
-        const activeRooms = getActiveRooms();
-        if (activeRooms[password]) {
-            return false;
-        }
-        
-        activeRooms[password] = {
-            players: [username + ' (Host)'],
-            created: Date.now(),
-            status: 'waiting'
-        };
-        saveActiveRooms(activeRooms);
-        debugLog('Room created:', password, activeRooms[password]);
-        return true;
-    }
-
-    // Function to join a room
-    function joinLocalRoom(password, username) {
-        const activeRooms = getActiveRooms();
-        const room = activeRooms[password];
-        
-        debugLog('Attempting to join room:', password, 'Current rooms:', activeRooms);
-        
-        if (!room) {
-            return { success: false, error: 'Room does not exist' };
-        }
-        
-        if (room.players.length >= ROOM_CAPACITY) {
-            return { success: false, error: 'Room is full' };
-        }
-        
-        if (room.players.includes(username)) {
-            return { success: false, error: 'Username already in room' };
-        }
-        
-        room.players.push(username);
-        saveActiveRooms(activeRooms);
-        debugLog('Successfully joined room:', password, room);
-        return { success: true, room };
-    }
-
-    // Add RoomManager class at the beginning
-    class RoomManager {
-        constructor() {
-            this.activeRooms = new Map(); // Map of room passwords to room data
-            this.ROOM_STATUS = {
-                WAITING: 'waiting'
-                //IN_GAME: 'in-game',
-                //FINISHED: 'finished'
-            };
-        }
-
-        createRoom(password, hostUsername) {
-            if (this.activeRooms.has(password)) {
-                return false; // Room already exists
-            }
-            
-            this.activeRooms.set(password, {
-                players: [hostUsername + ' (Host)'],
-                created: Date.now(),
-                maxPlayers: ROOM_CAPACITY,
-                status: this.ROOM_STATUS.WAITING,
-                gameStartTime: null
-            });
-            return true;
-        }
-
-        joinRoom(password, username) {
-            const room = this.activeRooms.get(password);
-            if (!room) {
-                return { success: false, error: 'Room does not exist' };
-            }
-            
-            if (room.status !== this.ROOM_STATUS.WAITING) {
-                return { success: false, error: 'Game already in progress' };
-            }
-            
-            if (room.players.length >= room.maxPlayers) {
-                return { success: false, error: 'Room is full' };
-            }
-
-            if (room.players.includes(username)) {
-                return { success: false, error: 'Username already in room' };
-            }
-
-            room.players.push(username);
-            return { success: true, room };
-        }
-
-        leaveRoom(password, username) {
-            const room = this.activeRooms.get(password);
-            if (!room) return false;
-
-            const playerIndex = room.players.findIndex(p => p === username);
-            if (playerIndex === -1) return false;
-
-            room.players.splice(playerIndex, 1);
-            
-            // If room is empty, remove it
-            if (room.players.length === 0) {
-                this.activeRooms.delete(password);
-            }
-            
-            return true;
-        }
-
-        isRoomActive(password) {
-            return this.activeRooms.has(password);
-        }
-
-        getRoomPlayers(password) {
-            return this.activeRooms.get(password)?.players || [];
-        }
-
-        startGame(password) {
-            const room = this.activeRooms.get(password);
-            if (!room) return false;
-            
-            room.status = this.ROOM_STATUS.IN_GAME;
-            room.gameStartTime = Date.now();
-            return true;
-        }
-
-        endGame(password) {
-            const room = this.activeRooms.get(password);
-            if (!room) return false;
-            
-            room.status = this.ROOM_STATUS.FINISHED;
-            return true;
-        }
-
-        getRoomStatus(password) {
-            return this.activeRooms.get(password)?.status || null;
-        }
-    }
-
-    const roomManager = new RoomManager();
+    socket.on('connect_error', (error) => {
+        console.error('Connection error:', error);
+        alert('Unable to connect to the game server. Please try again later.');
+    });
 
     const mainMenu = document.getElementById('main-menu');
     const gameOptions = document.getElementById('game-options');
@@ -274,28 +86,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         const passwordLength = 6;
         let password = '';
-        
-        // Create array for random values
         const randomValues = new Uint32Array(passwordLength);
-        // Fill with cryptographically strong random values
         crypto.getRandomValues(randomValues);
-        
-        // Generate password using the random values
         for (let i = 0; i < passwordLength; i++) {
             const randomIndex = randomValues[i] % characters.length;
             password += characters[randomIndex];
         }
-        
         return password;
     }
 
-    // Function to switch between menus
     function switchMenu(from, to) {
         from.classList.remove('active');
         to.classList.add('active');
     }
 
-    // Utility functions to show/hide title and description
     function showTitleAndDescription() {
         document.querySelector('.main-title').classList.remove('hidden');
         document.querySelector('.main-description').classList.remove('hidden');
@@ -305,7 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('.main-description').classList.add('hidden');
     }
 
-    // Show username menu after Play is clicked
     playButton.addEventListener('click', () => {
         switchMenu(mainMenu, usernameMenu);
         setRandomUsername();
@@ -330,25 +133,19 @@ document.addEventListener('DOMContentLoaded', () => {
         hideTitleAndDescription();
     });
 
-    // Back button click handler
     backButton.addEventListener('click', () => {
         switchMenu(gameOptions, mainMenu);
         showTitleAndDescription();
     });
 
-    // Function to render the player list in the create room menu
     function renderPlayerList() {
         playerList.innerHTML = '';
-        
-        // Add room status indicator only if there are fewer than 4 players
         if (roomPlayers.length < ROOM_CAPACITY) {
             const statusDiv = document.createElement('div');
             statusDiv.className = 'room-status status-waiting';
             statusDiv.textContent = 'Waiting for players...';
             playerList.appendChild(statusDiv);
         }
-        
-        // Add players list
         roomPlayers.forEach((player, idx) => {
             const div = document.createElement('div');
             div.className = 'player-name';
@@ -357,31 +154,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Update createGameButton click handler
     createGameButton.addEventListener('click', () => {
         debugLog('Creating new room...');
         const newPassword = generateRoomPassword();
-        let success;
-
-        if (socket && socket.connected) {
-            debugLog('Emitting createRoom event to server');
-            socket.emit('createRoom', {
-                roomId: newPassword,
-                username: currentUsername
-            });
-            success = true;
-        } else {
-            // Use local room management
-            success = createLocalRoom(newPassword, currentUsername);
-        }
-
-        if (!success) {
-            debugLog('Room creation failed, retrying...');
-            createGameButton.click();
-            return;
-        }
-
-        debugLog('Room created with password:', newPassword);
+        socket.emit('createRoom', {
+            roomId: newPassword,
+            username: currentUsername
+        });
         roomPassword.textContent = newPassword;
         roomPlayers = [currentUsername + ' (Host)'];
         renderPlayerList();
@@ -389,91 +168,54 @@ document.addEventListener('DOMContentLoaded', () => {
         hideTitleAndDescription();
     });
 
-    // For demo: simulate adding a player every time 'Invite/Share' is clicked (until full)
     const inviteButton = document.getElementById('invite-button');
     if (inviteButton) {
         inviteButton.addEventListener('click', () => {
-            console.log('Invite clicked');
-            // Generate a shareable link using the current room password
             const password = roomPassword.textContent;
             const url = `${window.location.origin}?room=${encodeURIComponent(password)}`;
-            console.log('Link to copy:', url);
-            console.log('Clipboard API available:', !!navigator.clipboard);
-            // Always try to copy to clipboard
             navigator.clipboard.writeText(url).then(() => {
-                console.log('Clipboard writeText success');
+                debugLog('Link copied:', url);
             }).catch(err => {
-                console.error('Clipboard copy failed:', err);
                 alert('Copy this link to share your room:\n' + url);
             });
-            // Try to use the Web Share API if available
             if (navigator.share) {
                 navigator.share({
                     title: 'Join my Final Circuit game!',
                     text: `Join my game room: ${password}`,
                     url: url
-                }).catch(() => {
-                    // do nothing, already handled
-                });
+                }).catch(() => {});
             }
-            // Remove any existing message
             const prevMsg = inviteButton.parentNode.querySelector('.invite-msg');
             if (prevMsg) prevMsg.remove();
-            // Show a temporary message
             let msg = document.createElement('span');
             msg.textContent = 'Link copied!';
             msg.className = 'invite-msg';
             msg.style.marginLeft = '1rem';
             msg.style.color = '#4ecdc4';
             inviteButton.parentNode.appendChild(msg);
-            setTimeout(() => {
-                msg.remove();
-            }, 2000);
+            setTimeout(() => { msg.remove(); }, 2000);
         });
     }
 
-    // Join game button click handler
     joinGameButton.addEventListener('click', () => {
         switchMenu(gameOptions, joinRoom);
         hideTitleAndDescription();
     });
 
-    // Update submitPassword click handler
     submitPassword.addEventListener('click', () => {
         const enteredPassword = passwordInput.value.trim().toUpperCase();
         debugLog('Attempting to join room:', enteredPassword);
         clearJoinError();
-
         if (!enteredPassword) {
             showJoinError('Please enter a room password');
             return;
         }
-
-        let result;
-        if (socket && socket.connected) {
-            debugLog('Emitting joinRoom event to server');
-            socket.emit('joinRoom', {
-                roomId: enteredPassword,
-                username: currentUsername
-            });
-        } else {
-            // Use local room management
-            result = joinLocalRoom(enteredPassword, currentUsername);
-            if (!result.success) {
-                debugLog('Failed to join room:', result.error);
-                showJoinError(result.error);
-                return;
-            }
-            roomPlayers = result.room.players;
-        }
-
-        debugLog('Successfully joined room. Current players:', roomPlayers);
-        renderPlayerList();
-        switchMenu(joinRoom, createRoom);
-        hideTitleAndDescription();
+        socket.emit('joinRoom', {
+            roomId: enteredPassword,
+            username: currentUsername
+        });
     });
 
-    // Update startGame click handler
     startGame.addEventListener('click', () => {
         if (roomPlayers.length < 2) {
             alert('Need at least 2 players to start the game!');
@@ -483,77 +225,52 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Too many players! Maximum is ' + ROOM_CAPACITY);
             return;
         }
-        
         const currentPassword = roomPassword.textContent;
-        
-        // Try to start game on backend if socket is available
-        if (socket && socket.connected) {
-            debugLog('Starting game with players:', roomPlayers);
-            socket.emit('startGame', {
-                roomId: currentPassword,
-                players: roomPlayers
-            });
-        } else {
-            // Fallback to local game start
-            localStorage.setItem('gamePlayers', JSON.stringify(roomPlayers));
-            localStorage.setItem('roomPassword', currentPassword);
-            localStorage.setItem('gameStartTime', Date.now());
-            window.location.href = 'game-board.html';
-        }
+        debugLog('Starting game with players:', roomPlayers);
+        socket.emit('startGame', {
+            roomId: currentPassword,
+            players: roomPlayers
+        });
     });
 
-    // Socket.IO event handlers - only add if socket is available
     if (socket) {
         socket.on('roomCreated', ({ roomId, players }) => {
             debugLog('Room created event received:', { roomId, players });
             roomPlayers = players;
             renderPlayerList();
         });
-
         socket.on('playerJoined', ({ username, players }) => {
             debugLog('Player joined event received:', { username, players });
             roomPlayers = players;
             renderPlayerList();
         });
-
         socket.on('playerLeft', ({ username, players }) => {
             debugLog('Player left event received:', { username, players });
             roomPlayers = players;
             renderPlayerList();
         });
-
         socket.on('gameStarted', ({ players, gameState }) => {
             debugLog('Game started event received:', { players, gameState });
             roomPlayers = players;
-            
-            // Store game data in localStorage
             localStorage.setItem('gamePlayers', JSON.stringify(players));
             localStorage.setItem('roomPassword', roomPassword.textContent);
             localStorage.setItem('gameState', JSON.stringify(gameState));
             localStorage.setItem('gameStartTime', Date.now());
-            
-            // Redirect to game board
             window.location.href = 'game-board.html';
         });
-
         socket.on('roomError', ({ message }) => {
             debugLog('Room error received:', message);
-            console.error('Room error:', message);
-            alert(message);
+            showJoinError(message);
         });
     }
 
-    // Update cleanup when leaving room
     backToOptions.addEventListener('click', () => {
         const currentPassword = roomPassword.textContent;
         if (currentPassword && currentPassword !== 'Generating...') {
-            roomManager.leaveRoom(currentPassword, currentUsername + ' (Host)');
-            if (socket && socket.connected) {
-                socket.emit('leaveRoom', {
-                    roomId: currentPassword,
-                    username: currentUsername
-                });
-            }
+            socket.emit('leaveRoom', {
+                roomId: currentPassword,
+                username: currentUsername
+            });
         }
         switchMenu(createRoom, gameOptions);
         hideTitleAndDescription();
@@ -562,19 +279,15 @@ document.addEventListener('DOMContentLoaded', () => {
     backToOptionsJoin.addEventListener('click', () => {
         const currentPassword = passwordInput.value.trim().toUpperCase();
         if (currentPassword) {
-            roomManager.leaveRoom(currentPassword, currentUsername);
-            if (socket && socket.connected) {
-                socket.emit('leaveRoom', {
-                    roomId: currentPassword,
-                    username: currentUsername
-                });
-            }
+            socket.emit('leaveRoom', {
+                roomId: currentPassword,
+                username: currentUsername
+            });
         }
         switchMenu(joinRoom, gameOptions);
         hideTitleAndDescription();
     });
 
-    // Copy password to clipboard
     copyPassword.addEventListener('click', () => {
         navigator.clipboard.writeText(roomPassword.textContent)
             .then(() => {
@@ -589,7 +302,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     });
 
-    // Show error message below the input if password is invalid
     function showJoinError(message) {
         let errorDiv = document.getElementById('join-error');
         if (!errorDiv) {
@@ -607,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (errorDiv) errorDiv.textContent = '';
     }
 
-    // Add CSS styles for room status
     const style = document.createElement('style');
     style.textContent = `
         .room-status {
