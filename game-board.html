@@ -445,7 +445,9 @@
         // Remove skipVotes logic and update skip button handler
         const skipButton = document.getElementById('skip-button');
         skipButton.onclick = () => {
-            socket.emit('skipCinematic', { roomId: myRoomId });
+            cinematicDiv.style.display = 'none';
+            document.querySelector('.game-board').classList.add('active');
+            fetchPlayersForRoom();
         };
 
         // Listen for skipCinematic event from server
