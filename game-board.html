@@ -372,9 +372,9 @@
         }
 
         // Socket.IO event handlers
-        socket.on('gameStarted', ({ board: newBoard, playersState, currentTurn }) => {
+        socket.on('gameStarted', ({ board: newBoard, players, currentTurn }) => {
             board = newBoard;
-            players = playersState;
+            players = players;
             currentPlayerIdx = currentTurn;
             const myName = localStorage.getItem('username');
             myPlayerIdx = players.findIndex(p => p.name === myName);
@@ -383,9 +383,9 @@
             renderTokenTray();
         });
 
-        socket.on('gameUpdate', ({ board: newBoard, playersState, currentTurn }) => {
+        socket.on('gameUpdate', ({ board: newBoard, players, currentTurn }) => {
             board = newBoard;
-            players = playersState;
+            players = players;
             currentPlayerIdx = currentTurn;
             renderPlayerCardsVertical();
             renderBoard();
@@ -401,22 +401,29 @@
                 if (!res.ok) return;
                 const data = await res.json();
                 if (data && Array.isArray(data.players)) {
-                    // If players are objects (with name/avatar/color), use as is
-                    // If players are just names, map to objects with default avatars/colors
-                    if (typeof data.players[0] === 'string') {
-                        const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
-                        const avatars = ['avatar1.png', 'avatar2.png', 'avatar3.png', 'avatar4.png'];
-                        players = data.players.map((name, idx) => ({
-                            name,
-                            color: colors[idx % 4],
-                            avatar: avatars[idx % 4],
-                            tokens: 5,
-                            alive: true
-                        }));
-                    } else {
-                        players = data.players;
-                    }
+                    // Always use backend-provided name and avatar, only assign color if missing
+                    const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+                    players = data.players.map((player, idx) => {
+                        if (typeof player === 'string') {
+                            // Fallback for legacy string-only player
+                            return {
+                                name: player,
+                                color: colors[idx % 4],
+                                avatar: 'avatar1.png',
+                                tokens: 5,
+                                alive: true
+                            };
+                        } else {
+                            return {
+                                ...player,
+                                color: player.color || colors[idx % 4], // Only assign color if not set
+                                avatar: player.avatar, // Always use backend avatar
+                                name: player.name      // Always use backend name
+                            };
+                        }
+                    });
                     renderPlayerCardsVertical();
+                    renderBoard();
                 }
             } catch (e) {
                 // Ignore fetch errors
