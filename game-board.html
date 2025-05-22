@@ -40,53 +40,71 @@
         }
         .game-board {
             display: none;
-            padding: 20px;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
         }
         .game-board.active {
             display: block;
         }
-        .player-info {
+        .player-list-vertical {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 220px;
+            height: 100vh;
+            background: rgba(30,30,30,0.95);
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-            padding: 10px;
-            background: #2c3e50;
-            border-radius: 8px;
+            flex-direction: column;
+            align-items: stretch;
+            padding: 32px 0 32px 0;
+            z-index: 2;
         }
-        .player-card {
+        .player-card-vertical {
             background: #34495e;
-            padding: 15px;
-            border-radius: 6px;
-            color: white;
-            text-align: center;
-            min-width: 150px;
+            margin: 12px 16px;
+            padding: 18px 10px;
+            border-radius: 8px;
+            color: #fff;
+            text-align: left;
+            min-width: 160px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
-        .player-card.host {
+        .player-card-vertical.host {
             border: 2px solid #e74c3c;
         }
-        .player-card .avatar {
-            width: 50px;
-            height: 50px;
+        .player-card-vertical .avatar {
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            margin-bottom: 10px;
+            background: #222;
+        }
+        .grid-area {
+            position: absolute;
+            left: 240px;
+            top: 0;
+            width: 520px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
         }
         .game-status {
-            text-align: center;
-            margin: 20px 0;
-            font-size: 1.2em;
-            color: #ecf0f1;
-        }
-        .countdown {
-            font-size: 2em;
-            color: #e74c3c;
-            text-align: center;
-            margin: 20px 0;
+            margin-bottom: 24px;
+            color: #fff;
+            font-size: 1.3rem;
         }
         .game-area {
-            background: #2c3e50;
-            border-radius: 8px;
-            padding: 20px;
-            margin-top: 20px;
+            background: #223;
+            border-radius: 12px;
+            min-width: 400px;
+            min-height: 320px;
+            color: #fff;
+            padding: 32px;
+            font-size: 1.5rem;
         }
     </style>
 </head>
@@ -95,9 +113,11 @@
         <div id="cinematic-text" class="cinematic-text"></div>
     </div>
     <div class="game-board">
-        <div class="player-info" id="player-info"></div>
-        <div class="game-status" id="game-status"></div>
-        <div class="game-area" id="game-area"></div>
+        <div class="player-list-vertical" id="player-list-vertical"></div>
+        <div class="grid-area" id="grid-area">
+            <div class="game-status" id="game-status"></div>
+            <div class="game-area" id="game-area"></div>
+        </div>
     </div>
     <script>
         // Cinematic narrative lines
@@ -110,7 +130,7 @@
         const cinematicDiv = document.querySelector('.cinematic');
         const cinematicText = document.getElementById('cinematic-text');
         const gameBoard = document.querySelector('.game-board');
-        const playerInfo = document.getElementById('player-info');
+        const playerListVertical = document.getElementById('player-list-vertical');
         const gameStatus = document.getElementById('game-status');
         const gameArea = document.getElementById('game-area');
 
@@ -135,27 +155,29 @@
                 // Hide cinematic and show game board
                 cinematicDiv.style.display = 'none';
                 gameBoard.classList.add('active');
-                // Optionally, initialize your game here
-                renderPlayerCards();
+                // Render vertical player cards and grid area
+                renderPlayerCardsVertical();
                 gameStatus.textContent = 'Game Started!';
-                gameArea.innerHTML = '<h2>Game Board</h2><p>Game initialization in progress...</p>';
+                gameArea.innerHTML = '<h2>Grid Game Placeholder</h2><p>The grid game will appear here.</p>';
             }
         }
 
-        // Render player cards (same as before)
-        function renderPlayerCards() {
-            playerInfo.innerHTML = '';
+        // Render player cards vertically on the left
+        function renderPlayerCardsVertical() {
+            playerListVertical.innerHTML = '';
             const gamePlayers = JSON.parse(localStorage.getItem('gamePlayers') || '[]');
             gamePlayers.forEach(player => {
                 const isHost = player.includes('(Host)');
                 const playerCard = document.createElement('div');
-                playerCard.className = `player-card ${isHost ? 'host' : ''}`;
+                playerCard.className = `player-card-vertical${isHost ? ' host' : ''}`;
                 playerCard.innerHTML = `
                     <img src="avatar1.png" alt="Avatar" class="avatar">
-                    <div class="player-name">${player}</div>
-                    <div class="player-status">${isHost ? 'Host' : 'Player'}</div>
+                    <div>
+                        <div class="player-name">${player}</div>
+                        <div class="player-status">${isHost ? 'Host' : 'Player'}</div>
+                    </div>
                 `;
-                playerInfo.appendChild(playerCard);
+                playerListVertical.appendChild(playerCard);
             });
         }
 
