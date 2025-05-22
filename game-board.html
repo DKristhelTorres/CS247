@@ -295,7 +295,7 @@
             ];
             // Assign each player to a corner in order
             let playerCornerMap = {};
-            for (let i = 0; i < displayPlayers.length && i < 5; i++) {
+            for (let i = 0; i < displayPlayers.length && i <= 4; i++) {
                 const [y, x] = cornerPositions[i];
                 playerCornerMap[`${y},${x}`] = displayPlayers[i];
             }
