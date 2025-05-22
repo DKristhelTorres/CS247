@@ -442,20 +442,18 @@
         // Start cinematic on load
         nextCinematic();
 
-        // Remove skipVotes logic and update skip button handler
+        // Add skip vote tracking logic
+        let skipVotes = 0;
         const skipButton = document.getElementById('skip-button');
         skipButton.onclick = () => {
-            cinematicDiv.style.display = 'none';
-            document.querySelector('.game-board').classList.add('active');
-            fetchPlayersForRoom();
+            skipVotes++;
+            const totalPlayers = players.filter(Boolean).length;
+            if (skipVotes >= Math.ceil(totalPlayers / 2)) {
+                cinematicDiv.style.display = 'none';
+                document.querySelector('.game-board').classList.add('active');
+                fetchPlayersForRoom();
+            }
         };
-
-        // Listen for skipCinematic event from server
-        socket.on('skipCinematic', () => {
-            cinematicDiv.style.display = 'none';
-            document.querySelector('.game-board').classList.add('active');
-            fetchPlayersForRoom();
-        });
     </script>
 </body>
 </html> 
