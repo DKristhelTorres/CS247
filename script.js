@@ -256,8 +256,19 @@ document.addEventListener('DOMContentLoaded', () => {
             debugLog('Player joined event received:', { username, players });
             roomPlayers = players;
             renderPlayerList();
-            // Only transition if the joining player is the current user
+            
+            // Update current user's avatar if it was changed by the server
             if (username === currentUsername) {
+                const player = players.find(p => p.name === username);
+                if (player && player.avatar !== avatarList[currentAvatarIdx]) {
+                    // Find the new avatar index
+                    const newAvatarIdx = avatarList.indexOf(player.avatar);
+                    if (newAvatarIdx !== -1) {
+                        currentAvatarIdx = newAvatarIdx;
+                        setAvatar(currentAvatarIdx);
+                        localStorage.setItem('currentAvatar', avatarList[currentAvatarIdx]);
+                    }
+                }
                 switchMenu(joinRoom, createRoom);
                 hideTitleAndDescription();
             }

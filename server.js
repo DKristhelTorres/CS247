@@ -48,6 +48,9 @@ class GameRoom {
             scores: {}
         };
         this.maxPlayers = 4;
+        this.availableAvatars = ['avatar1.png', 'avatar2.png', 'avatar3.png', 'avatar4.png'];
+        // Remove host's avatar from available avatars
+        this.availableAvatars = this.availableAvatars.filter(avatar => avatar !== hostAvatar);
     }
 
     addPlayer(username, avatar, color) {
@@ -57,12 +60,26 @@ class GameRoom {
         if (this.players.some(p => p.name === username)) {
             return false;
         }
+
+        // Check if the requested avatar is already taken
+        const isAvatarTaken = this.players.some(p => p.avatar === avatar);
+        let finalAvatar = avatar;
+        
+        if (isAvatarTaken) {
+            // If avatar is taken, assign the first available avatar
+            finalAvatar = this.availableAvatars[0] || 'avatar1.png';
+            // Remove the assigned avatar from available avatars
+            this.availableAvatars = this.availableAvatars.filter(av => av !== finalAvatar);
+        } else {
+            // If avatar is not taken, remove it from available avatars
+            this.availableAvatars = this.availableAvatars.filter(av => av !== avatar);
+        }
+
         const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
-        const avatars = ['avatar1.png', 'avatar2.png', 'avatar3.png', 'avatar4.png'];
         const idx = this.players.length % 4;
         this.players.push({
             name: username,
-            avatar: avatar || avatars[idx],
+            avatar: finalAvatar,
             color: color || colors[idx],
             tokens: 5,
             alive: true
