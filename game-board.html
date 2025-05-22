@@ -257,8 +257,8 @@
                 playerListVertical.appendChild(emptyState);
                 return;
             }
-            // Render a card for every player (up to 4)
-            displayPlayers.slice(0, 4).forEach((player, idx) => {
+            // Render a card for every player (no slice)
+            displayPlayers.forEach((player, idx) => {
                 const playerCard = document.createElement('div');
                 playerCard.className = `player-card-vertical${player.alive ? '' : ' eliminated'}`;
                 playerCard.style.background = player.color + 'cc';
@@ -295,7 +295,7 @@
             ];
             // Assign each player to a corner in order
             let playerCornerMap = {};
-            for (let i = 0; i < displayPlayers.length && i < 4; i++) {
+            for (let i = 0; i < displayPlayers.length && i < 5; i++) {
                 const [y, x] = cornerPositions[i];
                 playerCornerMap[`${y},${x}`] = displayPlayers[i];
             }
