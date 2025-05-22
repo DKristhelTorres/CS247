@@ -370,7 +370,7 @@
 
         // Socket.IO event handlers
         socket.on('gameStarted', ({ board: newBoard, players, currentTurn }) => {
-            board = newBoard;
+            console.log('SOCKET gameStarted players:', players);
             // Normalize player objects and assign color if missing
             const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
             players = players.map((player, idx) => {
@@ -400,7 +400,7 @@
         });
 
         socket.on('gameUpdate', ({ board: newBoard, players, currentTurn }) => {
-            board = newBoard;
+            console.log('SOCKET gameUpdate players:', players);
             // Normalize player objects and assign color if missing
             const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
             players = players.map((player, idx) => {
