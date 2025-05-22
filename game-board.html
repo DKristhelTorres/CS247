@@ -46,6 +46,16 @@
         .game-board.active {
             display: block;
         }
+        .game-content-container {
+            flex: 1;
+            height: 100vh;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
         .player-list-vertical {
             width: 220px;
             height: 100vh;
@@ -158,9 +168,12 @@
     </div>
     <div class="game-board">
         <div class="player-list-vertical" id="player-list-vertical"></div>
-        <div class="main-board-area">
-            <div id="board-grid"></div>
-            <div id="token-tray"></div>
+        <div class="game-content-container" id="game-content-container">
+            <div class="main-board-area">
+                <div id="board-grid"></div>
+                <div id="token-tray"></div>
+            </div>
+            <!-- Mini-games or other game content can be injected here in the future -->
         </div>
     </div>
     <script>
