@@ -161,11 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             roomId: newPassword,
             username: currentUsername
         });
-        roomPassword.textContent = newPassword;
-        roomPlayers = [currentUsername + ' (Host)'];
-        renderPlayerList();
-        switchMenu(gameOptions, createRoom);
-        hideTitleAndDescription();
+        // Do NOT update UI here! Wait for roomCreated event.
     });
 
     const inviteButton = document.getElementById('invite-button');
@@ -236,8 +232,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (socket) {
         socket.on('roomCreated', ({ roomId, players }) => {
             debugLog('Room created event received:', { roomId, players });
+            roomPassword.textContent = roomId;
             roomPlayers = players;
             renderPlayerList();
+            switchMenu(gameOptions, createRoom);
+            hideTitleAndDescription();
         });
         socket.on('playerJoined', ({ username, players }) => {
             debugLog('Player joined event received:', { username, players });

@@ -85,6 +85,7 @@ io.on('connection', (socket) => {
         activeRooms.set(roomId, room);
         socket.join(roomId);
         socket.emit('roomCreated', { roomId, players: room.players });
+        console.log(`Room ${roomId} created by ${username}`);
     });
 
     socket.on('joinRoom', ({ roomId, username }) => {
@@ -94,15 +95,33 @@ io.on('connection', (socket) => {
             return;
         }
 
-        if (room.addPlayer(username)) {
-            socket.join(roomId);
-            io.to(roomId).emit('playerJoined', { 
-                username, 
-                players: room.players 
-            });
-        } else {
-            socket.emit('roomError', { message: 'Could not join room' });
+        if (room.players.length >= room.maxPlayers) {
+            socket.emit('roomError', { message: 'Room is full' });
+            return;
         }
+
+        if (room.players.includes(username)) {
+            socket.emit('roomError', { message: 'Username already in room' });
+            return;
+        }
+
+        room.addPlayer(username);
+        socket.join(roomId);
+
+        // Notify the joining player of the current room state
+        socket.emit('playerJoined', {
+            username,
+            players: room.players
+        });
+
+        // Notify all other players in the room
+        socket.to(roomId).emit('playerJoined', {
+            username,
+            players: room.players
+        });
+
+        // Log room state for debugging
+        console.log(`Player ${username} joined room ${roomId}. Players now:`, room.players);
     });
 
     socket.on('startGame', ({ roomId }) => {
@@ -117,6 +136,7 @@ io.on('connection', (socket) => {
                 players: room.players,
                 gameState: room.gameState
             });
+            console.log(`Game started in room ${roomId}`);
         } else {
             socket.emit('roomError', { message: 'Could not start game' });
         }
@@ -130,11 +150,13 @@ io.on('connection', (socket) => {
             
             if (room.players.length === 0) {
                 activeRooms.delete(roomId);
+                console.log(`Room ${roomId} deleted (empty)`);
             } else {
                 io.to(roomId).emit('playerLeft', {
                     username,
                     players: room.players
                 });
+                console.log(`Player ${username} left room ${roomId}. Players now:`, room.players);
             }
         }
     });
@@ -156,6 +178,10 @@ app.post('/api/rooms', (req, res) => {
     res.json({ roomId, players: room.players });
 });
 
+app.get('/api/rooms', (req, res) => {
+    res.json(Array.from(activeRooms.keys()));
+});
+
 app.get('/api/rooms/:roomId', (req, res) => {
     const room = activeRooms.get(req.params.roomId);
     if (!room) {
@@ -166,6 +192,14 @@ app.get('/api/rooms/:roomId', (req, res) => {
         players: room.players,
         gameState: room.gameState
     });
+});
+
+app.get('/api/rooms/:roomId/players', (req, res) => {
+    const room = activeRooms.get(req.params.roomId);
+    if (!room) {
+        return res.status(404).json({ error: 'Room not found' });
+    }
+    res.json(room.players);
 });
 
 const PORT = process.env.PORT || 3000;
