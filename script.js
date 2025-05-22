@@ -58,10 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUsername = '';
     let currentAvatarIdx = 0;
     const avatarList = [
-        'avatar1.png',
-        'avatar2.png',
-        'avatar3.png',
-        'avatar4.png'
+        'Avatar1.jpg',
+        'Avatar2.jpg',
+        'Avatar3.jpg',
+        'Avatar4.jpg'
     ];
 
     function randomUsername() {
