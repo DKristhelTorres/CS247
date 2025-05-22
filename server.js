@@ -10,6 +10,7 @@ const io = new Server(server, {
         origin: [
             "https://dkristheltorres.github.io",
             "https://dkristheltorres.github.io/CS247",
+            "https://dkristheltorres.github.io/CS247/",
             "http://localhost:3000"
         ],
         methods: ["GET", "POST"],
@@ -94,6 +95,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('joinRoom', ({ roomId, username }) => {
+        console.log(`joinRoom called: roomId=${roomId}, username=${username}`); // Debug log
         const room = activeRooms.get(roomId);
         if (!room) {
             socket.emit('roomError', { message: 'Room does not exist' });
