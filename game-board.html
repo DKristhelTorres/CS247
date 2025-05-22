@@ -377,6 +377,40 @@
             renderTokenTray();
         });
 
+        // Fetch current player list for the room before the game starts
+        async function fetchPlayersForRoom() {
+            const roomId = localStorage.getItem('roomPassword');
+            if (!roomId) return;
+            try {
+                const res = await fetch(`${SERVER_URL.replace('ws', 'http')}/api/rooms/${roomId}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data && Array.isArray(data.players)) {
+                    // If players are objects (with name/avatar/color), use as is
+                    // If players are just names, map to objects with default avatars/colors
+                    if (typeof data.players[0] === 'string') {
+                        const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+                        const avatars = ['avatar1.png', 'avatar2.png', 'avatar3.png', 'avatar4.png'];
+                        players = data.players.map((name, idx) => ({
+                            name,
+                            color: colors[idx % 4],
+                            avatar: avatars[idx % 4],
+                            tokens: 5,
+                            alive: true
+                        }));
+                    } else {
+                        players = data.players;
+                    }
+                    renderPlayerCardsVertical();
+                }
+            } catch (e) {
+                // Ignore fetch errors
+            }
+        }
+
+        // Call fetch on page load
+        fetchPlayersForRoom();
+
         // Start cinematic on load
         nextCinematic();
     </script>
