@@ -374,7 +374,26 @@
         // Socket.IO event handlers
         socket.on('gameStarted', ({ board: newBoard, players, currentTurn }) => {
             board = newBoard;
-            players = players;
+            // Normalize player objects and assign color if missing
+            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+            players = players.map((player, idx) => {
+                if (typeof player === 'string') {
+                    return {
+                        name: player,
+                        color: colors[idx % 4],
+                        avatar: 'avatar1.png',
+                        tokens: 5,
+                        alive: true
+                    };
+                } else {
+                    return {
+                        ...player,
+                        color: player.color || colors[idx % 4],
+                        avatar: player.avatar,
+                        name: player.name
+                    };
+                }
+            });
             currentPlayerIdx = currentTurn;
             const myName = localStorage.getItem('username');
             myPlayerIdx = players.findIndex(p => p.name === myName);
@@ -385,7 +404,26 @@
 
         socket.on('gameUpdate', ({ board: newBoard, players, currentTurn }) => {
             board = newBoard;
-            players = players;
+            // Normalize player objects and assign color if missing
+            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+            players = players.map((player, idx) => {
+                if (typeof player === 'string') {
+                    return {
+                        name: player,
+                        color: colors[idx % 4],
+                        avatar: 'avatar1.png',
+                        tokens: 5,
+                        alive: true
+                    };
+                } else {
+                    return {
+                        ...player,
+                        color: player.color || colors[idx % 4],
+                        avatar: player.avatar,
+                        name: player.name
+                    };
+                }
+            });
             currentPlayerIdx = currentTurn;
             renderPlayerCardsVertical();
             renderBoard();
