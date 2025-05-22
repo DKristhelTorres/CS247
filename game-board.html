@@ -259,9 +259,7 @@
             } else {
                 cinematicDiv.style.display = 'none';
                 document.querySelector('.game-board').classList.add('active');
-                renderPlayerCardsVertical();
-                renderBoard();
-                renderTokenTray();
+                fetchPlayersForRoom();
             }
         }
 
@@ -453,9 +451,7 @@
             if (skipVotes >= Math.ceil(totalPlayers / 2)) {
                 cinematicDiv.style.display = 'none';
                 document.querySelector('.game-board').classList.add('active');
-                renderPlayerCardsVertical();
-                renderBoard();
-                renderTokenTray();
+                fetchPlayersForRoom();
             }
         };
     </script>
