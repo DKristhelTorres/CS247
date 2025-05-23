@@ -88,6 +88,7 @@ class GameRoom {
 
 const activeRooms = new Map();
 
+// Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
@@ -104,34 +105,39 @@ io.on('connection', (socket) => {
     });
 
     socket.on('joinRoom', ({ roomId, username, avatar, color }) => {
+        console.log(`joinRoom called: roomId=${roomId}, username=${username}`); // Debug log
         const room = activeRooms.get(roomId);
-        if (!room || room.players.length >= room.maxPlayers || room.players.some(p => p.name === username)) {
-            socket.emit('roomError', { message: 'Invalid room or name' });
+        if (!room) {
+            socket.emit('roomError', { message: 'Room does not exist' });
+            return;
+        }
+
+        if (room.players.length >= room.maxPlayers) {
+            socket.emit('roomError', { message: 'Room is full' });
+            return;
+        }
+
+        if (room.players.some(p => p.name === username)) {
+            socket.emit('roomError', { message: 'Username already in room' });
             return;
         }
         room.addPlayer(username, avatar, color);
         socket.join(roomId);
 
-        const playerIdx = room.players.findIndex(p => p.name === username);
-        socket.emit('joinedRoom', {
-            playerIdx,
+        // Notify the joining player of the current room state
+        socket.emit('playerJoined', {
+            username,
             players: room.players
         });
 
-        io.to(roomId).emit('gameUpdate', {
-            board: room.board || Array.from({ length: 7 }, () => Array(7).fill(null)),
-            players: room.players,
-            currentTurn: room.gameState.currentTurn
+        // Notify all other players in the room
+        socket.to(roomId).emit('playerJoined', {
+            username,
+            players: room.players
         });
 
-        if (room.gameState.status === 'in_progress') {
-            socket.emit('gameStarted', {
-                players: room.players,
-                gameState: room.gameState,
-                board: room.board,
-                currentTurn: room.gameState.currentTurn
-            });
-        }
+        // Log room state for debugging
+        console.log(`Player ${username} joined room ${roomId}. Players now:`, room.players);
     });
 
     socket.on('startGame', ({ roomId }) => {
@@ -192,6 +198,29 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
     });
+    // socket.on('disconnect', () => {
+    // console.log('User disconnected:', socket.id);
+    // const info = socketToRoom.get(socket.id);
+    // if (info) {
+    //     const { roomId, username } = info;
+    //     const room = activeRooms.get(roomId);
+    //     if (room) {
+    //         room.removePlayer(username);
+    //         if (room.players.length === 0) {
+    //             activeRooms.delete(roomId);
+    //             console.log(`Room ${roomId} deleted (empty)`);
+    //         } else {
+    //             io.to(roomId).emit('playerLeft', {
+    //                 username,
+    //                 players: room.players
+    //             });
+    //             console.log(`Player ${username} auto-removed from room ${roomId}`);
+    //         }
+    //     }
+    //     socketToRoom.delete(socket.id);
+    // }
+// });
+
 });
 
 app.get('/api/rooms', (req, res) => {
