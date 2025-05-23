@@ -236,6 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const currentPassword = roomPassword.textContent;
+        if (!currentPassword || currentPassword === 'Generating...') {
+            alert('Room password is not set correctly.');
+            return;
+        }
         debugLog('Starting game with players:', roomPlayers);
         socket.emit('startGame', {
             roomId: currentPassword,
@@ -258,9 +262,10 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPlayerList();
             // Only transition if the joining player is the current user
             if (username === currentUsername) {
+                roomPassword.textContent = passwordInput.value.trim().toUpperCase(); 
                 switchMenu(joinRoom, createRoom);
                 hideTitleAndDescription();
-            }
+}
         });
         socket.on('playerLeft', ({ username, players }) => {
             debugLog('Player left event received:', { username, players });

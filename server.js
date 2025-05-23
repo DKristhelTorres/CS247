@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -29,11 +30,9 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Game Room Manager
 class GameRoom {
     constructor(roomId, hostUsername, hostAvatar, hostColor) {
         this.roomId = roomId;
-        this.hostUsername = hostUsername;
         this.players = [{
             name: hostUsername,
             avatar: hostAvatar || 'avatar1.png',
@@ -51,10 +50,7 @@ class GameRoom {
     }
 
     addPlayer(username, avatar, color) {
-        if (this.players.length >= this.maxPlayers) {
-            return false;
-        }
-        if (this.players.some(p => p.name === username)) {
+        if (this.players.length >= this.maxPlayers || this.players.some(p => p.name === username)) {
             return false;
         }
         const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
@@ -82,25 +78,16 @@ class GameRoom {
     }
 
     startGame() {
-        if (this.players.length < 2) {
-            return false;
-        }
+        if (this.players.length < 2) return false;
         this.gameState.status = 'in_progress';
         this.gameState.startTime = Date.now();
-        this.gameState.currentTurn = 0;  // Index of first player
-        return true;
-    }
-
-    endGame() {
-        this.gameState.status = 'finished';
+        this.gameState.currentTurn = 0;
         return true;
     }
 }
 
-// Room Management
 const activeRooms = new Map();
 
-// Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
@@ -109,7 +96,6 @@ io.on('connection', (socket) => {
             socket.emit('roomError', { message: 'Room already exists' });
             return;
         }
-
         const room = new GameRoom(roomId, username, avatar, color);
         activeRooms.set(roomId, room);
         socket.join(roomId);
@@ -118,59 +104,73 @@ io.on('connection', (socket) => {
     });
 
     socket.on('joinRoom', ({ roomId, username, avatar, color }) => {
-        console.log(`joinRoom called: roomId=${roomId}, username=${username}`); // Debug log
         const room = activeRooms.get(roomId);
-        if (!room) {
-            socket.emit('roomError', { message: 'Room does not exist' });
+        if (!room || room.players.length >= room.maxPlayers || room.players.some(p => p.name === username)) {
+            socket.emit('roomError', { message: 'Invalid room or name' });
             return;
         }
-
-        if (room.players.length >= room.maxPlayers) {
-            socket.emit('roomError', { message: 'Room is full' });
-            return;
-        }
-
-        if (room.players.some(p => p.name === username)) {
-            socket.emit('roomError', { message: 'Username already in room' });
-            return;
-        }
-
         room.addPlayer(username, avatar, color);
         socket.join(roomId);
 
-        // Notify the joining player of the current room state
-        socket.emit('playerJoined', {
-            username,
+        const playerIdx = room.players.findIndex(p => p.name === username);
+        socket.emit('joinedRoom', {
+            playerIdx,
             players: room.players
         });
 
-        // Notify all other players in the room
-        socket.to(roomId).emit('playerJoined', {
-            username,
-            players: room.players
+        io.to(roomId).emit('gameUpdate', {
+            board: room.board || Array.from({ length: 7 }, () => Array(7).fill(null)),
+            players: room.players,
+            currentTurn: room.gameState.currentTurn
         });
 
-        // Log room state for debugging
-        console.log(`Player ${username} joined room ${roomId}. Players now:`, room.players);
+        if (room.gameState.status === 'in_progress') {
+            socket.emit('gameStarted', {
+                players: room.players,
+                gameState: room.gameState,
+                board: room.board,
+                currentTurn: room.gameState.currentTurn
+            });
+        }
     });
 
     socket.on('startGame', ({ roomId }) => {
         const room = activeRooms.get(roomId);
-        if (!room) {
-            socket.emit('roomError', { message: 'Room does not exist' });
+        if (!room || !room.startGame()) {
+            socket.emit('roomError', { message: 'Game cannot be started' });
             return;
         }
 
-        if (room.startGame()) {
-            io.to(roomId).emit('gameStarted', {
-                players: room.players,
-                gameState: room.gameState,
-                currentTurn: 0
-            });
-            console.log(`Game started in room ${roomId}`);
-        } else {
-            socket.emit('roomError', { message: 'Could not start game' });
-        }
+        room.board = Array.from({ length: 7 }, () => Array(7).fill(null));
+        const ranked = [...room.players].sort((a, b) => (room.gameState.scores[b.name] || 0) - (room.gameState.scores[a.name] || 0));
+        const tileCounts = [3, 2, 1, 0];
+
+        ranked.forEach((p, i) => {
+            const rp = room.players.find(player => player.name === p.name);
+            if (rp) rp.tokens = tileCounts[i] || 0;
+        });
+
+        io.to(roomId).emit('gameStarted', {
+            players: room.players,
+            gameState: room.gameState,
+            board: room.board,
+            currentTurn: 0
+        });
+    });
+
+    socket.on('placeToken', ({ roomId, x, y, tokenType, playerIdx }) => {
+        const room = activeRooms.get(roomId);
+        if (!room) return;
+
+        room.board[y][x] = tokenType;
+        const player = room.players[playerIdx];
+        if (player) player.tokens = Math.max((player.tokens || 0) - 1, 0);
+
+        io.to(roomId).emit('gameUpdate', {
+            board: room.board,
+            players: room.players,
+            currentTurn: room.gameState.currentTurn
+        });
     });
 
     socket.on('leaveRoom', ({ roomId, username }) => {
@@ -178,16 +178,13 @@ io.on('connection', (socket) => {
         if (room) {
             room.removePlayer(username);
             socket.leave(roomId);
-            
             if (room.players.length === 0) {
                 activeRooms.delete(roomId);
-                console.log(`Room ${roomId} deleted (empty)`);
             } else {
                 io.to(roomId).emit('playerLeft', {
                     username,
                     players: room.players
                 });
-                console.log(`Player ${username} left room ${roomId}. Players now:`, room.players);
             }
         }
     });
@@ -197,43 +194,28 @@ io.on('connection', (socket) => {
     });
 });
 
-// REST API endpoints
-app.post('/api/rooms', (req, res) => {
-    const { roomId, username } = req.body;
-    if (activeRooms.has(roomId)) {
-        return res.status(400).json({ error: 'Room already exists' });
-    }
-
-    const room = new GameRoom(roomId, username);
-    activeRooms.set(roomId, room);
-    res.json({ roomId, players: room.players });
-});
-
 app.get('/api/rooms', (req, res) => {
     res.json(Array.from(activeRooms.keys()));
 });
 
 app.get('/api/rooms/:roomId', (req, res) => {
     const room = activeRooms.get(req.params.roomId);
-    if (!room) {
-        return res.status(404).json({ error: 'Room not found' });
-    }
-    res.json({
-        roomId: room.roomId,
-        players: room.players,
-        gameState: room.gameState
-    });
+    if (!room) return res.status(404).json({ error: 'Room not found' });
+    res.json({ roomId: room.roomId, players: room.players, gameState: room.gameState });
 });
 
 app.get('/api/rooms/:roomId/players', (req, res) => {
     const room = activeRooms.get(req.params.roomId);
-    if (!room) {
-        return res.status(404).json({ error: 'Room not found' });
-    }
+    if (!room) return res.status(404).json({ error: 'Room not found' });
     res.json(room.players);
 });
 
 const PORT = process.env.PORT || 3000;
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-}); 
+});
