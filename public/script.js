@@ -250,6 +250,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (socket) {
         socket.on('roomCreated', ({ roomId, players }) => {
             debugLog('Room created event received:', { roomId, players });
+            localStorage.setItem('roomPassword', roomId); 
+            localStorage.setItem('username', currentUsername); 
             roomPassword.textContent = roomId;
             roomPlayers = players;
             renderPlayerList();
@@ -262,7 +264,11 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPlayerList();
             // Only transition if the joining player is the current user
             if (username === currentUsername) {
-                roomPassword.textContent = passwordInput.value.trim().toUpperCase(); 
+                // roomPassword.textContent = passwordInput.value.trim().toUpperCase(); 
+                const pwd = passwordInput.value.trim().toUpperCase();
+                roomPassword.textContent = pwd;
+                localStorage.setItem('roomPassword', pwd); 
+                localStorage.setItem('username', currentUsername);
                 switchMenu(joinRoom, createRoom);
                 hideTitleAndDescription();
 }

@@ -164,20 +164,69 @@ io.on('connection', (socket) => {
         });
     });
 
+    // socket.on('placeToken', ({ roomId, x, y, tokenType, playerIdx }) => {
+    //     const room = activeRooms.get(roomId);
+    //     if (!room) return;
+
+    //     if (!room.board) {
+    //         room.board = Array.from({ length: 7 }, () => Array(7).fill(null));
+    //     }
+
+    //     room.board[y][x] = tokenType;
+
+    //     const player = room.players[playerIdx];
+    //     if (player) player.tokens = Math.max((player.tokens || 0) - 1, 0);
+
+    //     io.to(roomId).emit('gameUpdate', {
+    //         board: room.board,
+    //         players: room.players,
+    //         currentTurn: room.gameState.currentTurn
+    //     });
+    // });
+
     socket.on('placeToken', ({ roomId, x, y, tokenType, playerIdx }) => {
         const room = activeRooms.get(roomId);
         if (!room) return;
 
-        room.board[y][x] = tokenType;
-        const player = room.players[playerIdx];
-        if (player) player.tokens = Math.max((player.tokens || 0) - 1, 0);
+        // Ensure the board is initialized
+        if (!room.board) {
+            room.board = Array.from({ length: 7 }, () => Array(7).fill(null));
+        }
 
+        // // Reject move if the cell is already filled (defensive check)
+        // if (room.board[y][x]) return;
+
+
+        // Place the token
+        room.board[y][x] = tokenType;
+
+        const player = room.players[playerIdx];
+        if (player) {
+            player.tokens = Math.max((player.tokens || 0) - 1, 0);
+        }
+
+        // Always attempt to advance turn (after every valid move)
+        const total = room.players.length;
+        if (player.tokens === 0) {
+            for (let i = 1; i <= total; i++) {
+                const nextIdx = (room.gameState.currentTurn + i) % total;
+                const nextPlayer = room.players[nextIdx];
+                if (nextPlayer && nextPlayer.alive && nextPlayer.tokens > 0) {
+                    room.gameState.currentTurn = nextIdx;
+                    break;
+                }
+            }
+        }
+
+        // Broadcast update
         io.to(roomId).emit('gameUpdate', {
             board: room.board,
             players: room.players,
             currentTurn: room.gameState.currentTurn
         });
+        console.log(`[DEBUG] gameUpdate sent – currentTurn: ${room.gameState.currentTurn}`);
     });
+
 
     socket.on('leaveRoom', ({ roomId, username }) => {
         const room = activeRooms.get(roomId);
@@ -198,28 +247,6 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
     });
-    // socket.on('disconnect', () => {
-    // console.log('User disconnected:', socket.id);
-    // const info = socketToRoom.get(socket.id);
-    // if (info) {
-    //     const { roomId, username } = info;
-    //     const room = activeRooms.get(roomId);
-    //     if (room) {
-    //         room.removePlayer(username);
-    //         if (room.players.length === 0) {
-    //             activeRooms.delete(roomId);
-    //             console.log(`Room ${roomId} deleted (empty)`);
-    //         } else {
-    //             io.to(roomId).emit('playerLeft', {
-    //                 username,
-    //                 players: room.players
-    //             });
-    //             console.log(`Player ${username} auto-removed from room ${roomId}`);
-    //         }
-    //     }
-    //     socketToRoom.delete(socket.id);
-    // }
-// });
 
 });
 

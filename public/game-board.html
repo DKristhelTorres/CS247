@@ -152,6 +152,8 @@
         </div>
     </div>
     <script>
+        console.log("username in localStorage is", localStorage.getItem('username'));
+
         const gameBoard = document.querySelector('.game-board');
         const playerListVertical = document.getElementById('player-list-vertical');
         const gameStatus = document.getElementById('game-status');
@@ -238,18 +240,83 @@
                 const [y, x] = cornerPositions[i];
                 playerCornerMap[`${y},${x}`] = displayPlayers[i];
             }
+            // for (let y = 0; y < N; y++) {
+            //     for (let x = 0; x < N; x++) {
+            //         const cell = document.createElement('div');
+            //         cell.className = 'grid-cell';
+            //         // Corners
+            //         if ((y === 0 && x === 0) || (y === 0 && x === N-1) || (y === N-1 && x === N-1) || (y === N-1 && x === 0)) {
+            //             cell.classList.add('corner');
+            //             const player = playerCornerMap[`${y},${x}`];
+            //             if (player) {
+            //                 cell.style.background = player.color + '33';
+            //                 cell.style.border = `2px solid ${player.color}`;
+            //                 cell.innerHTML = `<span class=\"token\" style=\"color:${player.color};\">L</span>`;
+            //                 board[y][x] = 'L';
+            //             } else {
+            //                 cell.innerHTML = '';
+            //                 cell.style.background = '#eee';
+            //                 cell.style.border = '2px solid #888';
+            //             }
+            //         }
+            //         // Center
+            //         if (x === Math.floor(N/2) && y === Math.floor(N/2)) {
+            //             cell.classList.add('center');
+            //         }
+            //         // Token
+            //         if (board[y][x] && !cell.innerHTML) {
+            //             cell.innerHTML = `<span class=\"token\">${board[y][x]}</span>`;
+            //         }
+            //         cell.onclick = () => {
+            //             console.log("CLICK:", { x, y });
+            //             console.log("selectedToken", selectedToken);
+            //             console.log("tokensLeft", displayPlayers[myPlayerIdx]?.tokens);
+            //             console.log("board[y][x]", board[y][x]);
+            //             console.log("myPlayerIdx", myPlayerIdx, "currentPlayerIdx", currentPlayerIdx);
+
+            //             if (
+            //                 selectedToken &&
+            //                 displayPlayers[myPlayerIdx]?.tokens > 0 &&
+            //                 !((y === 0 && x === 0) || (y === 0 && x === N-1) || (y === N-1 && x === 0) || (y === N-1 && x === N-1)) &&
+            //                 !board[y][x] &&
+            //                 myPlayerIdx === currentPlayerIdx
+            //             ) {
+            //                 board[y][x] = selectedToken.symbol;
+            //                 console.log(`Placing token ${selectedToken.symbol} at (${x}, ${y})`);
+            //                 displayPlayers[myPlayerIdx].tokens--;
+            //                 renderBoard();
+            //                 renderPlayerCardsVertical();
+            //                 renderTokenTray();
+            //                 socket.emit('placeToken', {
+            //                     roomId: myRoomId,
+            //                     x, y,
+            //                     tokenType: selectedToken.symbol,
+            //                     playerIdx: myPlayerIdx
+            //                 });
+            //             }
+            //         };
+            //         boardGrid.appendChild(cell);
+            //     }
+            // }
             for (let y = 0; y < N; y++) {
                 for (let x = 0; x < N; x++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
-                    // Corners
-                    if ((y === 0 && x === 0) || (y === 0 && x === N-1) || (y === N-1 && x === N-1) || (y === N-1 && x === 0)) {
+
+                    const isCorner = (
+                        (y === 0 && x === 0) ||
+                        (y === 0 && x === N-1) ||
+                        (y === N-1 && x === N-1) ||
+                        (y === N-1 && x === 0)
+                    );
+
+                    if (isCorner) {
                         cell.classList.add('corner');
                         const player = playerCornerMap[`${y},${x}`];
                         if (player) {
                             cell.style.background = player.color + '33';
                             cell.style.border = `2px solid ${player.color}`;
-                            cell.innerHTML = `<span class=\"token\" style=\"color:${player.color};\">L</span>`;
+                            cell.innerHTML = `<span class="token" style="color:${player.color};">L</span>`;
                             board[y][x] = 'L';
                         } else {
                             cell.innerHTML = '';
@@ -257,38 +324,52 @@
                             cell.style.border = '2px solid #888';
                         }
                     }
-                    // Center
-                    if (x === Math.floor(N/2) && y === Math.floor(N/2)) {
+
+                    if (x === Math.floor(N / 2) && y === Math.floor(N / 2)) {
                         cell.classList.add('center');
                     }
-                    // Token
-                    if (board[y][x] && !cell.innerHTML) {
-                        cell.innerHTML = `<span class=\"token\">${board[y][x]}</span>`;
-                    }
-                    cell.onclick = () => {
-                        if (
-                            selectedToken &&
-                            displayPlayers[myPlayerIdx]?.tokens > 0 &&
-                            !((y === 0 && x === 0) || (y === 0 && x === N-1) || (y === N-1 && x === 0) || (y === N-1 && x === N-1)) &&
-                            !board[y][x] &&
-                            myPlayerIdx === currentPlayerIdx
-                        ) {
-                            board[y][x] = selectedToken.symbol;
-                            displayPlayers[myPlayerIdx].tokens--;
-                            renderBoard();
-                            renderPlayerCardsVertical();
-                            renderTokenTray();
-                            socket.emit('placeToken', {
-                                roomId: myRoomId,
-                                x, y,
-                                tokenType: selectedToken.symbol,
-                                playerIdx: myPlayerIdx
-                            });
+
+                    if (!isCorner && !(x === Math.floor(N / 2) && y === Math.floor(N / 2))) {
+                        if (board[y][x]) {
+                            cell.innerHTML = `<span class="token">${board[y][x]}</span>`;
                         }
-                    };
+                    }
+
+                    if (!isCorner) {
+                        console.log("Rendering cell", x, y, "selectedToken is", selectedToken);
+                        cell.onclick = () => {
+                            console.log("CLICK:", { x, y });
+                            console.log("selectedToken", selectedToken);
+                            console.log("tokensLeft", players[myPlayerIdx]?.tokens);
+                            console.log("board[y][x]", board[y][x]);
+                            console.log("myPlayerIdx", myPlayerIdx, "currentPlayerIdx", currentPlayerIdx);
+
+                            if (
+                                selectedToken &&
+                                players[myPlayerIdx]?.tokens > 0 &&
+                                !board[y][x] &&
+                                myPlayerIdx === currentPlayerIdx
+                            ) {
+                                board[y][x] = selectedToken.symbol;
+                                console.log(`Placing token ${selectedToken.symbol} at (${x}, ${y})`);
+                                players[myPlayerIdx].tokens--;
+                                renderBoard();
+                                renderPlayerCardsVertical();
+                                renderTokenTray();
+                                socket.emit('placeToken', {
+                                    roomId: myRoomId,
+                                    x, y,
+                                    tokenType: selectedToken.symbol,
+                                    playerIdx: myPlayerIdx
+                                });
+                            }
+                        };
+                    }
+
                     boardGrid.appendChild(cell);
                 }
             }
+
         }
 
         function renderTokenTray() {
@@ -299,6 +380,7 @@
                 tokenDiv.className = 'token-piece' + (selectedToken === token ? ' selected' : '');
                 tokenDiv.textContent = token.symbol;
                 tokenDiv.onclick = () => {
+                    console.log("Token selected:", token.symbol);
                     selectedToken = token;
                     renderTokenTray();
                 };
@@ -330,38 +412,55 @@
             });
             currentPlayerIdx = currentTurn;
             const myName = localStorage.getItem('username');
+            if (!myName) {
+                console.warn("Username not set in localStorage!");
+            }
+            console.log("myName", myName);
+            console.log("all player names", players.map(p => p.name));
             myPlayerIdx = players.findIndex(p => p.name === myName);
+            console.log("Fetched myPlayerIdx:", myPlayerIdx);
+            
             renderPlayerCardsVertical();
             renderBoard();
             renderTokenTray();
         });
 
-        socket.on('gameUpdate', ({ board: newBoard, players, currentTurn }) => {
-            console.log('SOCKET gameUpdate players:', players);
-            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
-            players = players.map((player, idx) => {
-                if (typeof player === 'string') {
-                    return {
-                        name: player,
-                        color: colors[idx % 4],
-                        avatar: 'avatar1.png',
-                        tokens: 5,
-                        alive: true
-                    };
-                } else {
-                    return {
-                        ...player,
-                        color: player.color || colors[idx % 4],
-                        avatar: player.avatar,
-                        name: player.name
-                    };
-                }
-            });
-            currentPlayerIdx = currentTurn;
-            renderPlayerCardsVertical();
-            renderBoard();
-            renderTokenTray();
-        });
+        // socket.on('gameUpdate', ({ board: newBoard, players: updatedPlayers, currentTurn }) => {
+        //     console.log('SOCKET gameUpdate players:', updatedPlayers);
+        //     board = newBoard;
+        //     players = updatedPlayers;
+        //     currentPlayerIdx = currentTurn;
+
+        //     const myName = localStorage.getItem('username');
+        //     myPlayerIdx = players.findIndex(p => p.name === myName);
+        //     console.log("Updated myPlayerIdx:", myPlayerIdx, "currentTurn:", currentTurn);
+
+
+        //     renderPlayerCardsVertical();
+        //     renderBoard();
+        //     renderTokenTray();
+        // });
+
+    socket.on('gameUpdate', ({ board: newBoard, players: updatedPlayers, currentTurn }) => {
+        console.log('[gameUpdate] Received board update:', newBoard);
+
+        // Fix: ensure deep copy of the board so renderBoard picks up changes
+        board = newBoard.map(row => [...row]);
+
+        players = updatedPlayers;
+        currentPlayerIdx = currentTurn;
+
+        const myName = localStorage.getItem('username');
+        myPlayerIdx = players.findIndex(p => p.name === myName);
+        console.log("Updated myPlayerIdx:", myPlayerIdx, "currentTurn:", currentTurn);
+
+        renderPlayerCardsVertical();
+        renderBoard();
+        renderTokenTray();
+    });
+
+
+
 
         // Fetch current player list for the room before the game starts
         async function fetchPlayersForRoom() {
@@ -393,6 +492,9 @@
                             };
                         }
                     });
+                    const myName = localStorage.getItem('username');
+                    myPlayerIdx = players.findIndex(p => p.name === myName);
+                    console.log("Fetched myPlayerIdx:", myPlayerIdx, "based on username:", myName);
                     renderPlayerCardsVertical();
                     renderBoard();
                 }
@@ -405,8 +507,8 @@
       fetchPlayersForRoom();
 
       // Immediately show game board
-      renderPlayerCardsVertical();
-      renderBoard();
+    //   renderPlayerCardsVertical();
+    //   renderBoard();
       renderTokenTray();
     </script>
 </body>
