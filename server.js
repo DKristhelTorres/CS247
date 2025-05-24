@@ -46,6 +46,7 @@ class GameRoom {
             currentTurn: null,
             scores: {}
         };
+        this.board = Array.from({ length: 7 }, () => Array(7).fill(null)); //!!!
         this.maxPlayers = 4;
     }
 
@@ -87,10 +88,15 @@ class GameRoom {
 }
 
 const activeRooms = new Map();
+const socketToRoomMap = new Map(); // Track which room each socket belongs to
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
+
+    socket.onAny((event, ...args) => {
+        console.log(`[SOCKET DEBUG] Received event: ${event}`, ...args);
+    });
 
     socket.on('createRoom', ({ roomId, username, avatar, color }) => {
         if (activeRooms.has(roomId)) {
@@ -116,13 +122,29 @@ io.on('connection', (socket) => {
             socket.emit('roomError', { message: 'Room is full' });
             return;
         }
+        const existingPlayer = room.players.find(p => p.name === username);
 
-        if (room.players.some(p => p.name === username)) {
-            socket.emit('roomError', { message: 'Username already in room' });
-            return;
+        if (existingPlayer) {
+            console.log(`[SERVER] ${username} is reconnecting.`);
+            socket.join(roomId);
+            socketToRoomMap.set(socket.id, roomId);
+        } else {
+            if (room.players.length >= room.maxPlayers) {
+                socket.emit('roomError', { message: 'Room is full' });
+                return;
+            }
+
+            room.addPlayer(username, avatar, color);
+            socket.join(roomId);
+            socketToRoomMap.set(socket.id, roomId);
         }
+
         room.addPlayer(username, avatar, color);
         socket.join(roomId);
+        socketToRoomMap.set(socket.id, roomId);
+        console.log(`Socket ${socket.id} joined room ${roomId}`);
+
+
 
         // Notify the joining player of the current room state
         socket.emit('playerJoined', {
@@ -130,11 +152,37 @@ io.on('connection', (socket) => {
             players: room.players
         });
 
+        console.log(`[DEBUG] Emitting gameUpdate on joinRoom. Board snapshot:`);
+        console.table(room.board);
+
+        socket.emit('gameUpdate', {
+            board: room.board || Array.from({ length: 7 }, () => Array(7).fill(null)),
+            players: room.players,
+            currentTurn: room.gameState.currentTurn
+        });
+        
         // Notify all other players in the room
         socket.to(roomId).emit('playerJoined', {
             username,
             players: room.players
         });
+
+        if (room.gameState.status === 'in_progress') {
+            socket.emit('gameUpdate', {
+                board: room.board,
+                players: room.players,
+                currentTurn: room.gameState.currentTurn
+            });
+            console.log(`[SERVER] Synced gameUpdate to ${username} on rejoin.`);
+        }
+
+
+
+        setTimeout(() => {
+            io.in(roomId).allSockets().then(sockets => {
+                console.log(`Sockets currently in ${roomId}:`, [...sockets]);
+            });
+        }, 100); // Give a small delay to allow room state to settle
 
         // Log room state for debugging
         console.log(`Player ${username} joined room ${roomId}. Players now:`, room.players);
@@ -164,29 +212,21 @@ io.on('connection', (socket) => {
         });
     });
 
-    // socket.on('placeToken', ({ roomId, x, y, tokenType, playerIdx }) => {
-    //     const room = activeRooms.get(roomId);
-    //     if (!room) return;
-
-    //     if (!room.board) {
-    //         room.board = Array.from({ length: 7 }, () => Array(7).fill(null));
-    //     }
-
-    //     room.board[y][x] = tokenType;
-
-    //     const player = room.players[playerIdx];
-    //     if (player) player.tokens = Math.max((player.tokens || 0) - 1, 0);
-
-    //     io.to(roomId).emit('gameUpdate', {
-    //         board: room.board,
-    //         players: room.players,
-    //         currentTurn: room.gameState.currentTurn
-    //     });
-    // });
-
     socket.on('placeToken', ({ roomId, x, y, tokenType, playerIdx }) => {
+        console.log(`[SERVER] Received placeToken: room=${roomId}, (${x}, ${y}) => ${tokenType}, from player ${playerIdx}`);
+
         const room = activeRooms.get(roomId);
-        if (!room) return;
+        if (!room) {
+            console.warn(`[SERVER] No room found for ${roomId}`);
+            return;
+        }
+
+        console.log(`[SERVER] Emitting gameUpdate for ${roomId}`);
+        console.log("Board state:", room.board);
+
+        io.in(roomId).allSockets().then(sockets => {
+            console.log(`[CHECK] All sockets in room ${roomId}:`, [...sockets]);
+        });
 
         // Ensure the board is initialized
         if (!room.board) {
@@ -219,11 +259,27 @@ io.on('connection', (socket) => {
         }
 
         // Broadcast update
+        console.log(`[SERVER] Broadcasting gameUpdate to room ${roomId}`);
+        io.in(roomId).allSockets().then(sockets => {
+            console.log(`Sockets in ${roomId}:`, [...sockets]);
+        });
+
+        console.log(`[SERVER] About to emit gameUpdate to room ${roomId}`);
+        console.log("Board state now:", JSON.stringify(room.board));
+        console.log("Players now:", JSON.stringify(room.players));
+
         io.to(roomId).emit('gameUpdate', {
             board: room.board,
             players: room.players,
             currentTurn: room.gameState.currentTurn
         });
+        console.log(`[SERVER] Emitted gameUpdate to room ${roomId}`);
+
+
+        io.in(roomId).allSockets().then(sockets => {
+            console.log(`[DEBUG] Emitted gameUpdate to room ${roomId} with sockets:`, [...sockets]);
+        });
+
         console.log(`[DEBUG] gameUpdate sent – currentTurn: ${room.gameState.currentTurn}`);
     });
 
@@ -245,8 +301,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        const roomId = socketToRoomMap.get(socket.id);
+        socketToRoomMap.delete(socket.id);
         console.log('User disconnected:', socket.id);
-    });
+});
 
 });
 

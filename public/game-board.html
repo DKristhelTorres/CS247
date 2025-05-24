@@ -151,6 +151,7 @@
             <!-- Mini-games or other game content can be injected here in the future -->
         </div>
     </div>
+    <button onclick="renderBoard()">Force Re-Render</button>
     <script>
         console.log("username in localStorage is", localStorage.getItem('username'));
 
@@ -164,6 +165,82 @@
             ? 'http://localhost:3000'
             : 'https://cs247.onrender.com';
         const socket = io(SERVER_URL);
+
+        socket.on('gameStarted', ({ board: newBoard, players, currentTurn }) => {
+            console.log('SOCKET gameStarted players:', players);
+            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+            players = players.map((player, idx) => {
+                if (typeof player === 'string') {
+                    return {
+                        name: player,
+                        color: colors[idx % 4],
+                        avatar: 'avatar1.png',
+                        tokens: 5,
+                        alive: true
+                    };
+                } else {
+                    return {
+                        ...player,
+                        color: player.color || colors[idx % 4],
+                        avatar: player.avatar,
+                        name: player.name
+                    };
+                }
+            });
+            currentPlayerIdx = currentTurn;
+            const myName = localStorage.getItem('username');
+            if (!myName) {
+                console.warn("Username not set in localStorage!");
+            }
+            console.log("myName", myName);
+            console.log("all player names", players.map(p => p.name));
+            myPlayerIdx = players.findIndex(p => p.name === myName);
+            console.log("Fetched myPlayerIdx:", myPlayerIdx);
+            
+            renderPlayerCardsVertical();
+            renderBoard();
+            renderTokenTray();
+        });
+
+        socket.on('gameUpdate', ({ board: newBoard, players: updatedPlayers, currentTurn }) => {
+            const myName = localStorage.getItem('username');
+            console.log(`[CLIENT ${myName}] Received gameUpdate with currentTurn=${currentTurn}`);
+            console.log(`[CLIENT ${myName}] Board state:\n`, JSON.stringify(newBoard));
+
+
+            // Fix: ensure deep copy of the board so renderBoard picks up changes
+            board = newBoard.map(row => [...row]);
+
+            players = updatedPlayers;
+            currentPlayerIdx = currentTurn;
+
+            myPlayerIdx = players.findIndex(p => p.name === myName);
+            console.log("Updated myPlayerIdx:", myPlayerIdx, "currentTurn:", currentTurn);
+
+            renderPlayerCardsVertical();
+            console.log("[CLIENT] Board before rendering", board);
+            renderBoard();
+            renderTokenTray();
+    });
+
+
+        socket.on('connect', () => {
+            console.log('Socket connected:', socket.id);
+
+            const username = localStorage.getItem('username');
+            const roomId = localStorage.getItem('roomPassword');
+
+        if (username && roomId) {
+            console.log(`Attempting auto-rejoin: room=${roomId}, user=${username}`);
+            socket.emit('joinRoom', {
+                roomId,
+                username,
+                avatar: 'avatar1.png', // or store avatar in localStorage
+                color: null // server assigns
+            });
+        }
+    });
+
 
         const N = 7;
         let board = Array.from({length: N}, () => Array(N).fill(null));
@@ -329,10 +406,13 @@
                         cell.classList.add('center');
                     }
 
-                    if (!isCorner && !(x === Math.floor(N / 2) && y === Math.floor(N / 2))) {
-                        if (board[y][x]) {
-                            cell.innerHTML = `<span class="token">${board[y][x]}</span>`;
-                        }
+                    // if (!isCorner && !(x === Math.floor(N / 2) && y === Math.floor(N / 2))) {
+                    //     if (board[y][x]) {
+                    //         cell.innerHTML = `<span class="token">${board[y][x]}</span>`;
+                    //     }
+                    // }
+                    if (board[y][x]) {
+                        cell.innerHTML = `<span class="token">${board[y][x]}</span>`;
                     }
 
                     if (!isCorner) {
@@ -356,6 +436,11 @@
                                 renderBoard();
                                 renderPlayerCardsVertical();
                                 renderTokenTray();
+                                console.log("EMIT placeToken with:", {
+                                    token: selectedToken,
+                                    symbol: selectedToken?.symbol,
+                                    at: [x, y]
+                                });
                                 socket.emit('placeToken', {
                                     roomId: myRoomId,
                                     x, y,
@@ -388,77 +473,9 @@
             });
         }
 
-        // Socket.IO event handlers
-        socket.on('gameStarted', ({ board: newBoard, players, currentTurn }) => {
-            console.log('SOCKET gameStarted players:', players);
-            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
-            players = players.map((player, idx) => {
-                if (typeof player === 'string') {
-                    return {
-                        name: player,
-                        color: colors[idx % 4],
-                        avatar: 'avatar1.png',
-                        tokens: 5,
-                        alive: true
-                    };
-                } else {
-                    return {
-                        ...player,
-                        color: player.color || colors[idx % 4],
-                        avatar: player.avatar,
-                        name: player.name
-                    };
-                }
-            });
-            currentPlayerIdx = currentTurn;
-            const myName = localStorage.getItem('username');
-            if (!myName) {
-                console.warn("Username not set in localStorage!");
-            }
-            console.log("myName", myName);
-            console.log("all player names", players.map(p => p.name));
-            myPlayerIdx = players.findIndex(p => p.name === myName);
-            console.log("Fetched myPlayerIdx:", myPlayerIdx);
-            
-            renderPlayerCardsVertical();
-            renderBoard();
-            renderTokenTray();
-        });
+        
 
-        // socket.on('gameUpdate', ({ board: newBoard, players: updatedPlayers, currentTurn }) => {
-        //     console.log('SOCKET gameUpdate players:', updatedPlayers);
-        //     board = newBoard;
-        //     players = updatedPlayers;
-        //     currentPlayerIdx = currentTurn;
-
-        //     const myName = localStorage.getItem('username');
-        //     myPlayerIdx = players.findIndex(p => p.name === myName);
-        //     console.log("Updated myPlayerIdx:", myPlayerIdx, "currentTurn:", currentTurn);
-
-
-        //     renderPlayerCardsVertical();
-        //     renderBoard();
-        //     renderTokenTray();
-        // });
-
-    socket.on('gameUpdate', ({ board: newBoard, players: updatedPlayers, currentTurn }) => {
-        console.log('[gameUpdate] Received board update:', newBoard);
-
-        // Fix: ensure deep copy of the board so renderBoard picks up changes
-        board = newBoard.map(row => [...row]);
-
-        players = updatedPlayers;
-        currentPlayerIdx = currentTurn;
-
-        const myName = localStorage.getItem('username');
-        myPlayerIdx = players.findIndex(p => p.name === myName);
-        console.log("Updated myPlayerIdx:", myPlayerIdx, "currentTurn:", currentTurn);
-
-        renderPlayerCardsVertical();
-        renderBoard();
-        renderTokenTray();
-    });
-
+    
 
 
 
