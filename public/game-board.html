@@ -151,6 +151,20 @@
             <!-- Mini-games or other game content can be injected here in the future -->
         </div>
     </div>
+    <div id="turn-warning" style="
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(30, 30, 30, 0.95);
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+    z-index: 999;
+    box-shadow: 0 0 12px #000a;">
+    </div>
     <button onclick="renderBoard()">Force Re-Render</button>
     <script>
         console.log("username in localStorage is", localStorage.getItem('username'));
@@ -221,7 +235,23 @@
             console.log("[CLIENT] Board before rendering", board);
             renderBoard();
             renderTokenTray();
-    });
+
+            const warningEl = document.getElementById('turn-warning');
+            const currentPlayer = players[currentPlayerIdx];
+            const isMyTurn = myPlayerIdx === currentPlayerIdx;
+
+            const tilesLeft = currentPlayer.tokens ?? 0;
+            const totalTiles = currentPlayer.initialTiles ?? tilesLeft;
+
+            if (isMyTurn) {
+                warningEl.textContent = `🎯 Your turn — you have ${tilesLeft}/${totalTiles} tiles left`;
+                warningEl.style.color = '#00ff88';
+            } else {
+                warningEl.textContent = `⏳ ${currentPlayer.name}'s turn — they have ${tilesLeft}/${totalTiles} tiles left`;
+                warningEl.style.color = '#ffcc00';
+            }
+
+        });
 
 
         socket.on('connect', () => {

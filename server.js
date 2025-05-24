@@ -199,9 +199,17 @@ io.on('connection', (socket) => {
         const ranked = [...room.players].sort((a, b) => (room.gameState.scores[b.name] || 0) - (room.gameState.scores[a.name] || 0));
         const tileCounts = [3, 2, 1, 0];
 
+        // ranked.forEach((p, i) => {
+        //     const rp = room.players.find(player => player.name === p.name);
+        //     if (rp) rp.tokens = tileCounts[i] || 0;
+        // });
         ranked.forEach((p, i) => {
             const rp = room.players.find(player => player.name === p.name);
-            if (rp) rp.tokens = tileCounts[i] || 0;
+            if (rp) {
+                const assigned = tileCounts[i] || 0;
+                rp.tokens = assigned;
+                rp.initialTiles = assigned; 
+            }
         });
 
         io.to(roomId).emit('gameStarted', {
