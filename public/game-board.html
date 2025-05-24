@@ -271,6 +271,13 @@
         }
     });
 
+    socket.on('boomTriggered', ({ playerName }) => {
+        setTimeout(() => {
+            alert(`💥 BOOM! ${playerName} is dead!`);
+        }, 100); // delay to ensure render completes first
+    });
+
+
 
         const N = 7;
         let board = Array.from({length: N}, () => Array(N).fill(null));
@@ -347,64 +354,6 @@
                 const [y, x] = cornerPositions[i];
                 playerCornerMap[`${y},${x}`] = displayPlayers[i];
             }
-            // for (let y = 0; y < N; y++) {
-            //     for (let x = 0; x < N; x++) {
-            //         const cell = document.createElement('div');
-            //         cell.className = 'grid-cell';
-            //         // Corners
-            //         if ((y === 0 && x === 0) || (y === 0 && x === N-1) || (y === N-1 && x === N-1) || (y === N-1 && x === 0)) {
-            //             cell.classList.add('corner');
-            //             const player = playerCornerMap[`${y},${x}`];
-            //             if (player) {
-            //                 cell.style.background = player.color + '33';
-            //                 cell.style.border = `2px solid ${player.color}`;
-            //                 cell.innerHTML = `<span class=\"token\" style=\"color:${player.color};\">L</span>`;
-            //                 board[y][x] = 'L';
-            //             } else {
-            //                 cell.innerHTML = '';
-            //                 cell.style.background = '#eee';
-            //                 cell.style.border = '2px solid #888';
-            //             }
-            //         }
-            //         // Center
-            //         if (x === Math.floor(N/2) && y === Math.floor(N/2)) {
-            //             cell.classList.add('center');
-            //         }
-            //         // Token
-            //         if (board[y][x] && !cell.innerHTML) {
-            //             cell.innerHTML = `<span class=\"token\">${board[y][x]}</span>`;
-            //         }
-            //         cell.onclick = () => {
-            //             console.log("CLICK:", { x, y });
-            //             console.log("selectedToken", selectedToken);
-            //             console.log("tokensLeft", displayPlayers[myPlayerIdx]?.tokens);
-            //             console.log("board[y][x]", board[y][x]);
-            //             console.log("myPlayerIdx", myPlayerIdx, "currentPlayerIdx", currentPlayerIdx);
-
-            //             if (
-            //                 selectedToken &&
-            //                 displayPlayers[myPlayerIdx]?.tokens > 0 &&
-            //                 !((y === 0 && x === 0) || (y === 0 && x === N-1) || (y === N-1 && x === 0) || (y === N-1 && x === N-1)) &&
-            //                 !board[y][x] &&
-            //                 myPlayerIdx === currentPlayerIdx
-            //             ) {
-            //                 board[y][x] = selectedToken.symbol;
-            //                 console.log(`Placing token ${selectedToken.symbol} at (${x}, ${y})`);
-            //                 displayPlayers[myPlayerIdx].tokens--;
-            //                 renderBoard();
-            //                 renderPlayerCardsVertical();
-            //                 renderTokenTray();
-            //                 socket.emit('placeToken', {
-            //                     roomId: myRoomId,
-            //                     x, y,
-            //                     tokenType: selectedToken.symbol,
-            //                     playerIdx: myPlayerIdx
-            //                 });
-            //             }
-            //         };
-            //         boardGrid.appendChild(cell);
-            //     }
-            // }
             for (let y = 0; y < N; y++) {
                 for (let x = 0; x < N; x++) {
                     const cell = document.createElement('div');
@@ -424,23 +373,19 @@
                             cell.style.background = player.color + '33';
                             cell.style.border = `2px solid ${player.color}`;
                             cell.innerHTML = `<span class="token" style="color:${player.color};">L</span>`;
-                            board[y][x] = 'L';
+                            board[y][x] = '┼';
                         } else {
                             cell.innerHTML = '';
                             cell.style.background = '#eee';
                             cell.style.border = '2px solid #888';
                         }
                     }
+                    board[3][3] = board[3][3] || '┼';
 
                     if (x === Math.floor(N / 2) && y === Math.floor(N / 2)) {
                         cell.classList.add('center');
                     }
 
-                    // if (!isCorner && !(x === Math.floor(N / 2) && y === Math.floor(N / 2))) {
-                    //     if (board[y][x]) {
-                    //         cell.innerHTML = `<span class="token">${board[y][x]}</span>`;
-                    //     }
-                    // }
                     if (board[y][x]) {
                         cell.innerHTML = `<span class="token">${board[y][x]}</span>`;
                     }
@@ -462,6 +407,16 @@
                             ) {
                                 board[y][x] = selectedToken.symbol;
                                 console.log(`Placing token ${selectedToken.symbol} at (${x}, ${y})`);
+
+                                // if (isPathToCorner(board)) {
+                                //     console.log("💥BOOM! Path to corner found!");
+                                //     setTimeout(() => {
+                                //         alert(`💥BOOM! ${players[myPlayerIdx].name} is dead!`);
+                                //     }, 100); // small delay (~1 frame)                                       
+                                // } else {
+                                //     console.log("No path to corner yet — board is still safe.");
+                                // }
+
                                 players[myPlayerIdx].tokens--;
                                 renderBoard();
                                 renderPlayerCardsVertical();
@@ -503,11 +458,77 @@
             });
         }
 
-        
+        function getConnections(symbol) {
+            switch (symbol) {
+                case '─': return ['left', 'right'];
+                case '│': return ['up', 'down'];
+                case '┌': return ['right', 'down'];
+                case '┐': return ['left', 'down'];
+                case '┘': return ['left', 'up'];
+                case '└': return ['right', 'up'];
+                case '┼': return ['up', 'down', 'left', 'right'];
+                default: return [];
+            }
+        }
 
-    
+        function isPathToCorner(board) {
+            const N = board.length;
+            const visited = Array.from({ length: N }, () => Array(N).fill(false));
+            const center = [3, 3];
+            const queue = [center];
 
+            const directions = {
+                up: [-1, 0],
+                down: [1, 0],
+                left: [0, -1],
+                right: [0, 1]
+            };
 
+            const opposite = {
+                up: 'down',
+                down: 'up',
+                left: 'right',
+                right: 'left'
+            };
+
+            while (queue.length > 0) {
+                const [y, x] = queue.shift();
+                if (visited[y][x]) continue;
+                visited[y][x] = true;
+
+                const symbol = board[y][x];
+                if (!symbol) continue;
+
+                const connections = getConnections(symbol);
+
+                for (const dir of connections) {
+                    const [dy, dx] = directions[dir];
+                    const ny = y + dy;
+                    const nx = x + dx;
+
+                    if (ny < 0 || ny >= N || nx < 0 || nx >= N) continue;
+                    if (visited[ny][nx]) continue;
+
+                    const neighborSymbol = board[ny][nx];
+                    if (!neighborSymbol) continue;
+
+                    const neighborConnections = getConnections(neighborSymbol);
+                    if (neighborConnections.includes(opposite[dir])) {
+                        queue.push([ny, nx]);
+                    }
+                }
+            }
+
+            // Check if any corner was reached
+            const corners = [
+                [0, 0],
+                [0, N - 1],
+                [N - 1, 0],
+                [N - 1, N - 1]
+            ];
+
+            return corners.some(([cy, cx]) => visited[cy][cx]);
+        }
 
         // Fetch current player list for the room before the game starts
         async function fetchPlayersForRoom() {

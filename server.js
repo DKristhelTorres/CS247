@@ -47,6 +47,11 @@ class GameRoom {
             scores: {}
         };
         this.board = Array.from({ length: 7 }, () => Array(7).fill(null)); //!!!
+        this.board[0][0] = '┼';
+        this.board[0][6] = '┼';
+        this.board[6][0] = '┼';
+        this.board[6][6] = '┼';
+        this.board[3][3] = '┼'; // center tile
         this.maxPlayers = 4;
     }
 
@@ -85,6 +90,81 @@ class GameRoom {
         this.gameState.currentTurn = 0;
         return true;
     }
+}
+
+function getConnections(symbol) {
+    switch (symbol) {
+        case '─': return ['left', 'right'];
+        case '│': return ['up', 'down'];
+        case '┌': return ['right', 'down'];
+        case '┐': return ['left', 'down'];
+        case '┘': return ['left', 'up'];
+        case '└': return ['right', 'up'];
+        case '┼': return ['up', 'down', 'left', 'right'];
+        default: return [];
+    }
+}
+
+function isPathToCorner(board) {
+    const N = board.length;
+    const visited = Array.from({ length: N }, () => Array(N).fill(false));
+    const center = [3, 3];
+    const queue = [center];
+
+    const directions = {
+        up: [-1, 0],
+        down: [1, 0],
+        left: [0, -1],
+        right: [0, 1]
+    };
+
+    const opposite = {
+        up: 'down',
+        down: 'up',
+        left: 'right',
+        right: 'left'
+    };
+
+    
+    while (queue.length > 0) {
+        const [y, x] = queue.shift();
+        if (visited[y][x]) continue;
+        visited[y][x] = true;
+
+        const symbol = board[y][x];
+        if (!symbol) continue;
+
+        console.log(`Visiting [${y},${x}] = ${symbol}`);
+
+        const connections = getConnections(symbol);
+
+        for (const dir of connections) {
+            const [dy, dx] = directions[dir];
+            const ny = y + dy;
+            const nx = x + dx;
+
+            if (ny < 0 || ny >= N || nx < 0 || nx >= N) continue;
+            if (visited[ny][nx]) continue;
+
+            const neighborSymbol = board[ny][nx];
+            if (!neighborSymbol) continue;
+
+            const neighborConnections = getConnections(neighborSymbol);
+            if (neighborConnections.includes(opposite[dir])) {
+                console.log(`  ↳ Moving ${dir} to [${ny},${nx}] = ${neighborSymbol} (has ${neighborConnections})`);
+                queue.push([ny, nx]);
+            }
+        }
+    }
+
+    const corners = [
+        [0, 0],
+        [0, N - 1],
+        [N - 1, 0],
+        [N - 1, N - 1]
+    ];
+
+    return corners.some(([cy, cx]) => visited[cy][cx]);
 }
 
 const activeRooms = new Map();
@@ -196,6 +276,11 @@ io.on('connection', (socket) => {
         }
 
         room.board = Array.from({ length: 7 }, () => Array(7).fill(null));
+        room.board[0][0] = '┼';
+        room.board[0][6] = '┼';
+        room.board[6][0] = '┼';
+        room.board[6][6] = '┼';
+        room.board[3][3] = '┼'; // center tile
         const ranked = [...room.players].sort((a, b) => (room.gameState.scores[b.name] || 0) - (room.gameState.scores[a.name] || 0));
         const tileCounts = [3, 2, 1, 0];
 
@@ -240,6 +325,8 @@ io.on('connection', (socket) => {
         if (!room.board) {
             room.board = Array.from({ length: 7 }, () => Array(7).fill(null));
         }
+        room.board[3][3] = room.board[3][3] || '┼'; // Always ensure center is set
+
 
         // // Reject move if the cell is already filled (defensive check)
         // if (room.board[y][x]) return;
@@ -247,6 +334,19 @@ io.on('connection', (socket) => {
 
         // Place the token
         room.board[y][x] = tokenType;
+
+        // Ensure center is seeded
+        room.board[3][3] = room.board[3][3] || '┼';
+
+        if (isPathToCorner(room.board)) {
+            console.log("💥 BOOM detected on server!");
+            io.to(roomId).emit('boomTriggered', {
+                playerName: room.players[playerIdx]?.name || "Unknown"
+            });
+        } else {
+           console.log("[SERVER] No path to corner yet.");
+        }
+
 
         const player = room.players[playerIdx];
         if (player) {
