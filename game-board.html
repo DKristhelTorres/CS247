@@ -14,28 +14,6 @@
             height: 100vh;
             overflow: hidden;
         }
-        .cinematic {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #000;
-            z-index: 10;
-        }
-        .cinematic-text {
-            font-size: 2.2rem;
-            text-align: center;
-            max-width: 700px;
-            opacity: 0;
-            transition: opacity 0.8s;
-            letter-spacing: 1px;
-            line-height: 1.4;
-            color: #fff;
-        }
-        .cinematic-text.active {
-            opacity: 1;
-        }
         .game-board {
             width: 100vw;
             height: 100vh;
@@ -163,9 +141,6 @@
     </style>
 </head>
 <body>
-    <div class="cinematic">
-        <div id="cinematic-text" class="cinematic-text"></div>
-    </div>
     <div class="game-board">
         <div class="player-list-vertical" id="player-list-vertical"></div>
         <div class="game-content-container" id="game-content-container">
@@ -176,16 +151,24 @@
             <!-- Mini-games or other game content can be injected here in the future -->
         </div>
     </div>
+    <div id="turn-warning" style="
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(30, 30, 30, 0.95);
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+    z-index: 999;
+    box-shadow: 0 0 12px #000a;">
+    </div>
+    <button onclick="renderBoard()">Force Re-Render</button>
     <script>
-        // Cinematic narrative lines
-        const narrative = [
-            "You are a chaotic and rather unbothered government spy. You are what they call...",
-            "A PIGEON",
-            "In your journey of making abstract nests, you had enough of fighting for crumbs in these New York streets.",
-            "Your job? Trigger in your fellow 'pigeon' mates a segfault in their surveillance system to get rid of the competition."
-        ];
-        const cinematicDiv = document.querySelector('.cinematic');
-        const cinematicText = document.getElementById('cinematic-text');
+        console.log("username in localStorage is", localStorage.getItem('username'));
+
         const gameBoard = document.querySelector('.game-board');
         const playerListVertical = document.getElementById('player-list-vertical');
         const gameStatus = document.getElementById('game-status');
@@ -196,6 +179,105 @@
             ? 'http://localhost:3000'
             : 'https://cs247.onrender.com';
         const socket = io(SERVER_URL);
+
+        socket.on('gameStarted', ({ board: newBoard, players, currentTurn }) => {
+            console.log('SOCKET gameStarted players:', players);
+            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
+            players = players.map((player, idx) => {
+                if (typeof player === 'string') {
+                    return {
+                        name: player,
+                        color: colors[idx % 4],
+                        avatar: 'avatar1.png',
+                        tokens: 5,
+                        alive: true
+                    };
+                } else {
+                    return {
+                        ...player,
+                        color: player.color || colors[idx % 4],
+                        avatar: player.avatar,
+                        name: player.name
+                    };
+                }
+            });
+            currentPlayerIdx = currentTurn;
+            const myName = localStorage.getItem('username');
+            if (!myName) {
+                console.warn("Username not set in localStorage!");
+            }
+            console.log("myName", myName);
+            console.log("all player names", players.map(p => p.name));
+            myPlayerIdx = players.findIndex(p => p.name === myName);
+            console.log("Fetched myPlayerIdx:", myPlayerIdx);
+            
+            renderPlayerCardsVertical();
+            renderBoard();
+            renderTokenTray();
+        });
+
+        socket.on('gameUpdate', ({ board: newBoard, players: updatedPlayers, currentTurn }) => {
+            const myName = localStorage.getItem('username');
+            console.log(`[CLIENT ${myName}] Received gameUpdate with currentTurn=${currentTurn}`);
+            console.log(`[CLIENT ${myName}] Board state:\n`, JSON.stringify(newBoard));
+
+
+            // Fix: ensure deep copy of the board so renderBoard picks up changes
+            board = newBoard.map(row => [...row]);
+
+            players = updatedPlayers;
+            currentPlayerIdx = currentTurn;
+
+            myPlayerIdx = players.findIndex(p => p.name === myName);
+            console.log("Updated myPlayerIdx:", myPlayerIdx, "currentTurn:", currentTurn);
+
+            renderPlayerCardsVertical();
+            console.log("[CLIENT] Board before rendering", board);
+            renderBoard();
+            renderTokenTray();
+
+            const warningEl = document.getElementById('turn-warning');
+            const currentPlayer = players[currentPlayerIdx];
+            const isMyTurn = myPlayerIdx === currentPlayerIdx;
+
+            const tilesLeft = currentPlayer.tokens ?? 0;
+            const totalTiles = currentPlayer.initialTiles ?? tilesLeft;
+
+            if (isMyTurn) {
+                warningEl.textContent = `🎯 Your turn — you have ${tilesLeft}/${totalTiles} tiles left`;
+                warningEl.style.color = '#00ff88';
+            } else {
+                warningEl.textContent = `⏳ ${currentPlayer.name}'s turn — they have ${tilesLeft}/${totalTiles} tiles left`;
+                warningEl.style.color = '#ffcc00';
+            }
+
+        });
+
+
+        socket.on('connect', () => {
+            console.log('Socket connected:', socket.id);
+
+            const username = localStorage.getItem('username');
+            const roomId = localStorage.getItem('roomPassword');
+
+        if (username && roomId) {
+            console.log(`Attempting auto-rejoin: room=${roomId}, user=${username}`);
+            socket.emit('joinRoom', {
+                roomId,
+                username,
+                avatar: 'avatar1.png', // or store avatar in localStorage
+                color: null // server assigns
+            });
+        }
+    });
+
+    socket.on('boomTriggered', ({ playerName }) => {
+        setTimeout(() => {
+            alert(`💥 BOOM! ${playerName} is dead!`);
+        }, 100); // delay to ensure render completes first
+    });
+
+
 
         const N = 7;
         let board = Array.from({length: N}, () => Array(N).fill(null));
@@ -214,33 +296,6 @@
             { type: 'straight', symbol: '─' },
             { type: 'cross', symbol: '┼' }
         ];
-
-        // Show cinematic sequence
-        let idx = 0;
-        function showCinematicLine(i) {
-            cinematicText.classList.remove('active');
-            setTimeout(() => {
-                cinematicText.textContent = narrative[i];
-                cinematicText.classList.add('active');
-            }, 400);
-        }
-        function nextCinematic() {
-            if (idx < narrative.length) {
-                showCinematicLine(idx);
-                idx++;
-                setTimeout(() => {
-                    cinematicText.classList.remove('active');
-                    setTimeout(nextCinematic, 1300); // fade out before next
-                }, 4500); // show each line for 4.5s
-            } else {
-                cinematicDiv.style.display = 'none';
-                document.querySelector('.game-board').classList.add('active');
-                renderPlayerCardsVertical();
-                renderBoard();
-                renderTokenTray();
-            }
-        }
-
         // Render player cards vertically on the left
         function renderPlayerCardsVertical() {
             console.log("DEBUG: players array in renderPlayerCardsVertical", players);
@@ -303,53 +358,88 @@
                 for (let x = 0; x < N; x++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
-                    // Corners
-                    if ((y === 0 && x === 0) || (y === 0 && x === N-1) || (y === N-1 && x === N-1) || (y === N-1 && x === 0)) {
+
+                    const isCorner = (
+                        (y === 0 && x === 0) ||
+                        (y === 0 && x === N-1) ||
+                        (y === N-1 && x === N-1) ||
+                        (y === N-1 && x === 0)
+                    );
+
+                    if (isCorner) {
                         cell.classList.add('corner');
                         const player = playerCornerMap[`${y},${x}`];
                         if (player) {
                             cell.style.background = player.color + '33';
                             cell.style.border = `2px solid ${player.color}`;
-                            cell.innerHTML = `<span class=\"token\" style=\"color:${player.color};\">L</span>`;
-                            board[y][x] = 'L';
+                            cell.innerHTML = `<span class="token" style="color:${player.color};">L</span>`;
+                            board[y][x] = '┼';
                         } else {
                             cell.innerHTML = '';
                             cell.style.background = '#eee';
                             cell.style.border = '2px solid #888';
                         }
                     }
-                    // Center
-                    if (x === Math.floor(N/2) && y === Math.floor(N/2)) {
+                    board[3][3] = board[3][3] || '┼';
+
+                    if (x === Math.floor(N / 2) && y === Math.floor(N / 2)) {
                         cell.classList.add('center');
                     }
-                    // Token
-                    if (board[y][x] && !cell.innerHTML) {
-                        cell.innerHTML = `<span class=\"token\">${board[y][x]}</span>`;
+
+                    if (board[y][x]) {
+                        cell.innerHTML = `<span class="token">${board[y][x]}</span>`;
                     }
-                    cell.onclick = () => {
-                        if (
-                            selectedToken &&
-                            displayPlayers[myPlayerIdx]?.tokens > 0 &&
-                            !((y === 0 && x === 0) || (y === 0 && x === N-1) || (y === N-1 && x === 0) || (y === N-1 && x === N-1)) &&
-                            !board[y][x] &&
-                            myPlayerIdx === currentPlayerIdx
-                        ) {
-                            board[y][x] = selectedToken.symbol;
-                            displayPlayers[myPlayerIdx].tokens--;
-                            renderBoard();
-                            renderPlayerCardsVertical();
-                            renderTokenTray();
-                            socket.emit('placeToken', {
-                                roomId: myRoomId,
-                                x, y,
-                                tokenType: selectedToken.symbol,
-                                playerIdx: myPlayerIdx
-                            });
-                        }
-                    };
+
+                    if (!isCorner) {
+                        console.log("Rendering cell", x, y, "selectedToken is", selectedToken);
+                        cell.onclick = () => {
+                            console.log("CLICK:", { x, y });
+                            console.log("selectedToken", selectedToken);
+                            console.log("tokensLeft", players[myPlayerIdx]?.tokens);
+                            console.log("board[y][x]", board[y][x]);
+                            console.log("myPlayerIdx", myPlayerIdx, "currentPlayerIdx", currentPlayerIdx);
+
+                            if (
+                                selectedToken &&
+                                players[myPlayerIdx]?.tokens > 0 &&
+                                !board[y][x] &&
+                                myPlayerIdx === currentPlayerIdx
+                            ) {
+                                board[y][x] = selectedToken.symbol;
+                                console.log(`Placing token ${selectedToken.symbol} at (${x}, ${y})`);
+
+                                // if (isPathToCorner(board)) {
+                                //     console.log("💥BOOM! Path to corner found!");
+                                //     setTimeout(() => {
+                                //         alert(`💥BOOM! ${players[myPlayerIdx].name} is dead!`);
+                                //     }, 100); // small delay (~1 frame)                                       
+                                // } else {
+                                //     console.log("No path to corner yet — board is still safe.");
+                                // }
+
+                                players[myPlayerIdx].tokens--;
+                                renderBoard();
+                                renderPlayerCardsVertical();
+                                renderTokenTray();
+                                console.log("EMIT placeToken with:", {
+                                    token: selectedToken,
+                                    symbol: selectedToken?.symbol,
+                                    at: [x, y]
+                                });
+                                socket.emit('placeToken', {
+                                    roomId: myRoomId,
+                                    x, y,
+                                    tokenType: selectedToken.symbol,
+                                    playerIdx: myPlayerIdx
+                                });
+                            }
+                        };
+                    }
+
                     boardGrid.appendChild(cell);
                 }
             }
+
         }
 
         function renderTokenTray() {
@@ -360,6 +450,7 @@
                 tokenDiv.className = 'token-piece' + (selectedToken === token ? ' selected' : '');
                 tokenDiv.textContent = token.symbol;
                 tokenDiv.onclick = () => {
+                    console.log("Token selected:", token.symbol);
                     selectedToken = token;
                     renderTokenTray();
                 };
@@ -367,62 +458,77 @@
             });
         }
 
-        // Socket.IO event handlers
-        socket.on('gameStarted', ({ board: newBoard, players, currentTurn }) => {
-            console.log('SOCKET gameStarted players:', players);
-            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
-            players = players.map((player, idx) => {
-                if (typeof player === 'string') {
-                    return {
-                        name: player,
-                        color: colors[idx % 4],
-                        avatar: 'avatar1.png',
-                        tokens: 5,
-                        alive: true
-                    };
-                } else {
-                    return {
-                        ...player,
-                        color: player.color || colors[idx % 4],
-                        avatar: player.avatar,
-                        name: player.name
-                    };
-                }
-            });
-            currentPlayerIdx = currentTurn;
-            const myName = localStorage.getItem('username');
-            myPlayerIdx = players.findIndex(p => p.name === myName);
-            renderPlayerCardsVertical();
-            renderBoard();
-            renderTokenTray();
-        });
+        function getConnections(symbol) {
+            switch (symbol) {
+                case '─': return ['left', 'right'];
+                case '│': return ['up', 'down'];
+                case '┌': return ['right', 'down'];
+                case '┐': return ['left', 'down'];
+                case '┘': return ['left', 'up'];
+                case '└': return ['right', 'up'];
+                case '┼': return ['up', 'down', 'left', 'right'];
+                default: return [];
+            }
+        }
 
-        socket.on('gameUpdate', ({ board: newBoard, players, currentTurn }) => {
-            console.log('SOCKET gameUpdate players:', players);
-            const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
-            players = players.map((player, idx) => {
-                if (typeof player === 'string') {
-                    return {
-                        name: player,
-                        color: colors[idx % 4],
-                        avatar: 'avatar1.png',
-                        tokens: 5,
-                        alive: true
-                    };
-                } else {
-                    return {
-                        ...player,
-                        color: player.color || colors[idx % 4],
-                        avatar: player.avatar,
-                        name: player.name
-                    };
+        function isPathToCorner(board) {
+            const N = board.length;
+            const visited = Array.from({ length: N }, () => Array(N).fill(false));
+            const center = [3, 3];
+            const queue = [center];
+
+            const directions = {
+                up: [-1, 0],
+                down: [1, 0],
+                left: [0, -1],
+                right: [0, 1]
+            };
+
+            const opposite = {
+                up: 'down',
+                down: 'up',
+                left: 'right',
+                right: 'left'
+            };
+
+            while (queue.length > 0) {
+                const [y, x] = queue.shift();
+                if (visited[y][x]) continue;
+                visited[y][x] = true;
+
+                const symbol = board[y][x];
+                if (!symbol) continue;
+
+                const connections = getConnections(symbol);
+
+                for (const dir of connections) {
+                    const [dy, dx] = directions[dir];
+                    const ny = y + dy;
+                    const nx = x + dx;
+
+                    if (ny < 0 || ny >= N || nx < 0 || nx >= N) continue;
+                    if (visited[ny][nx]) continue;
+
+                    const neighborSymbol = board[ny][nx];
+                    if (!neighborSymbol) continue;
+
+                    const neighborConnections = getConnections(neighborSymbol);
+                    if (neighborConnections.includes(opposite[dir])) {
+                        queue.push([ny, nx]);
+                    }
                 }
-            });
-            currentPlayerIdx = currentTurn;
-            renderPlayerCardsVertical();
-            renderBoard();
-            renderTokenTray();
-        });
+            }
+
+            // Check if any corner was reached
+            const corners = [
+                [0, 0],
+                [0, N - 1],
+                [N - 1, 0],
+                [N - 1, N - 1]
+            ];
+
+            return corners.some(([cy, cx]) => visited[cy][cx]);
+        }
 
         // Fetch current player list for the room before the game starts
         async function fetchPlayersForRoom() {
@@ -454,6 +560,9 @@
                             };
                         }
                     });
+                    const myName = localStorage.getItem('username');
+                    myPlayerIdx = players.findIndex(p => p.name === myName);
+                    console.log("Fetched myPlayerIdx:", myPlayerIdx, "based on username:", myName);
                     renderPlayerCardsVertical();
                     renderBoard();
                 }
@@ -462,11 +571,13 @@
             }
         }
 
-        // Call fetch on page load
-        fetchPlayersForRoom();
+      // Call fetch on page load
+      fetchPlayersForRoom();
 
-        // Start cinematic on load
-        nextCinematic();
+      // Immediately show game board
+    //   renderPlayerCardsVertical();
+    //   renderBoard();
+      renderTokenTray();
     </script>
 </body>
 </html> 
