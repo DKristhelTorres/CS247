@@ -326,13 +326,19 @@ io.on('connection', (socket) => {
             room.board = Array.from({ length: 7 }, () => Array(7).fill(null));
         }
         room.board[3][3] = room.board[3][3] || '┼'; // Always ensure center is set
-
-
-        // // Reject move if the cell is already filled (defensive check)
-        // if (room.board[y][x]) return;
+        const isCenter = x === 3 && y === 3;
+        const isCorner =
+            (x === 0 && y === 0) ||
+            (x === 0 && y === 6) ||
+            (x === 6 && y === 0) ||
+            (x === 6 && y === 6);
 
 
         // Place the token
+        if (isCenter || isCorner) {
+            console.log(`[SERVER] Tile at (${x}, ${y}) is protected. Ignoring move.`);
+            return;
+        }
         room.board[y][x] = tokenType;
 
         // Ensure center is seeded

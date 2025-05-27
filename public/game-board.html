@@ -399,11 +399,18 @@
                             console.log("board[y][x]", board[y][x]);
                             console.log("myPlayerIdx", myPlayerIdx, "currentPlayerIdx", currentPlayerIdx);
 
+                            const isCenter = x === 3 && y === 3;
+                            const isCorner = 
+                                (y === 0 && x === 0) ||
+                                (y === 0 && x === N - 1) ||
+                                (y === N - 1 && x === 0) ||
+                                (y === N - 1 && x === N - 1);
+
                             if (
                                 selectedToken &&
                                 players[myPlayerIdx]?.tokens > 0 &&
-                                !board[y][x] &&
-                                myPlayerIdx === currentPlayerIdx
+                                myPlayerIdx === currentPlayerIdx &&
+                                !isCenter && !isCorner
                             ) {
                                 board[y][x] = selectedToken.symbol;
                                 console.log(`Placing token ${selectedToken.symbol} at (${x}, ${y})`);
