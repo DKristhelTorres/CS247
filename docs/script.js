@@ -1,6 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Add debug logging
     const DEBUG = true;
+    const PLAY_CINEMATIC = true; // Toggle false to skip cinematic for debugging
+
     function debugLog(...args) {
         if (DEBUG) {
             console.log('[DEBUG]', ...args);
@@ -285,7 +287,11 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('roomPassword', roomPassword.textContent);
             localStorage.setItem('gameState', JSON.stringify(gameState));
             localStorage.setItem('gameStartTime', Date.now());
-            window.location.href = 'game-board.html';
+            if (PLAY_CINEMATIC) {
+                window.location.href = 'game-intro.html';
+            } else {
+                window.location.href = 'game-board.html';
+            }
         });
         socket.on('roomError', ({ message }) => {
             debugLog('Room error received:', message);
