@@ -181,6 +181,32 @@ function isPathToCorner(board) {
 const activeRooms = new Map();
 const socketToRoomMap = new Map(); // Track which room each socket belongs to
 
+// --- MINIGAME1 OBSTACLE SYNC SETUP ---
+const mg1Obstacles = new Map();
+const CANVAS_HEIGHT = 700;
+const OBSTACLE_WIDTH = 40;
+const OBSTACLE_HEIGHT = 30;
+const SIDE_OFFSET = 35;
+const OBSTACLES_PER_LANE = 2;
+const OBSTACLE_POSITIONS = [0.2, 0.4, 0.6, 0.8].map(p => 700 * p);
+
+function generateObstacleSet() {
+    const lanes = 4;
+    const result = [];
+    for (let i = 0; i < lanes; i++) {
+        const direction = i % 2 === 0 ? 'down' : 'up';
+        for (let j = 0; j < OBSTACLES_PER_LANE; j++) {
+            const speed = 2 + Math.random() * 4;
+            const color = speed >= 4.5 ? 'yellow' : speed <= 2.5 ? 'blue' : '#ff5252';
+            const x = OBSTACLE_POSITIONS[i] - OBSTACLE_WIDTH / 2 + (j * SIDE_OFFSET);
+            const y = direction === 'down'
+                ? -OBSTACLE_HEIGHT - (j * CANVAS_HEIGHT / 3)
+                : CANVAS_HEIGHT + (j * CANVAS_HEIGHT / 3);
+            result.push({ x, y, width: OBSTACLE_WIDTH, height: OBSTACLE_HEIGHT, speed, color, lane: i, direction });
+        }
+    }
+    return result;
+}
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -438,13 +464,71 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('mg1JoinGame', (roomId) => {
+        const room = activeRooms.get(roomId);
+        console.log(`[SERVER] mg1JoinGame called by socket ${socket.id} for room ${roomId}`);
+        
+        if (!room) return;
+        console.log(`[SERVER] Room ${roomId} players:`, room.players.map(p => p.name));
+        
+        socket.join(roomId);
+        // if (!mg1Obstacles.has(roomId)) {
+        //     mg1Obstacles.set(roomId, generateObstacleSet());
+        // }
+        if (!mg1Obstacles.has(roomId) || !Array.isArray(mg1Obstacles.get(roomId))) {
+            console.log(`[SERVER] Generating new obstacles for ${roomId}`);
+            mg1Obstacles.set(roomId, generateObstacleSet());
+        }
+
+
+        const playerNames = room.players.map(p => p.name);
+        socket.emit('mg1Init', {
+            obstacles: mg1Obstacles.get(roomId),
+            players: playerNames
+        });
+    });
+
+    socket.on('mg1PlayerMove', ({ roomId, username, x, y, direction, moving }) => {
+        console.log(`[SERVER] mg1PlayerMove from ${username} in ${roomId}: (${x}, ${y}), dir=${direction}, moving=${moving}`);
+        
+        // Emit to ALL players in room INCLUDING the one who moved
+        io.to(roomId).emit('mg1PlayerMoved', {
+            username,
+            x, y, direction, moving
+        });
+
+        console.log(`[SERVER] Broadcasting mg1PlayerMoved for ${username} to ALL clients in room ${roomId}`);
+    });
+
+
+
     socket.on('disconnect', () => {
         const roomId = socketToRoomMap.get(socket.id);
         socketToRoomMap.delete(socket.id);
         console.log('User disconnected:', socket.id);
+    
+    });
 });
 
-});
+// --- MINIGAME1 OBSTACLE BROADCAST LOOP ---
+// Broadcast obstacle updates every 60ms
+setInterval(() => {
+    for (const [roomId, obsList] of mg1Obstacles.entries()) {
+        obsList.forEach(obs => {
+            if (obs.direction === 'down') {
+                obs.y += obs.speed;
+                if (obs.y > CANVAS_HEIGHT) obs.y = -OBSTACLE_HEIGHT;
+            } else {
+                obs.y -= obs.speed;
+                if (obs.y < -OBSTACLE_HEIGHT) obs.y = CANVAS_HEIGHT;
+            }
+        });
+        io.to(roomId).emit('mg1ObstaclesUpdate', { obstacles: obsList });
+        console.log(`[SERVER] Sent mg1ObstaclesUpdate to ${roomId} with ${obsList.length} obstacles`);
+    }
+}, 60);
+
+
 
 app.get('/api/rooms', (req, res) => {
     res.json(Array.from(activeRooms.keys()));
