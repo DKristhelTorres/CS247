@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tutorial - Play&Boom</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      background: rgba(30, 30, 30, 0.95);
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .tutorial-container {
+      max-width: 700px;
+      width: 90%;
+      padding: 40px;
+      background: rgba(30, 30, 30, 0.95);
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+    }
+
+    .tutorial-step {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .tutorial-step.active {
+      display: flex;
+    }
+
+    .tutorial-step h2 {
+      font-size: 2em;
+      margin: 0;
+    }
+
+    .tutorial-step p {
+      font-size: 1.2em;
+      margin: 0;
+    }
+    .tutorial-gif {
+        max-width: 100%;
+        height: auto;
+        margin-top: 10px;
+        border-radius: 8px;
+        }
+
+    .button-row {
+      margin-top: 24px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    button {
+      padding: 10px 18px;
+      border-radius: 6px;
+      border: none;
+      background-color: #333;
+      color: white;
+      font-size: 1em;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background-color: #aaa;
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="tutorial-container">
+    <div id="step-1" class="tutorial-step active">
+      <h2>🎞️ Earn Tokens</h2>
+      <p>Win mini-games to earn circuit tokens.</p>
+      <img src="gifs/placeholder" alt="Placeholder for mini-games example" class="tutorial-gif" />
+    </div>
+    <div id="step-2" class="tutorial-step">
+      <h2>🔀 Place Tiles</h2>
+      <p>Use tokens to place or swap tiles on the board.</p>
+      <img src="gifs/step2-tutorial.gif" alt="Placing a tile demo" class="tutorial-gif" />
+    </div>
+    <div id="step-3" class="tutorial-step">
+      <h2>💥 Trigger the Boom</h2>
+      <p>Complete a path from the center to any corner to make a player explode!</p>
+      <img src="gifs/step3-tutorial.gif" alt="Placing a tile demo" class="tutorial-gif" />
+    </div>
+    <div class="button-row">
+      <button id="next-button">Next →</button>
+      <button id="skip-button" class="secondary">Skip Tutorial</button>
+    </div>
+  </div>
+
+  <script>
+    const steps = document.querySelectorAll('.tutorial-step');
+    const nextButton = document.getElementById('next-button');
+    const skipButton = document.getElementById('skip-button');
+    let currentStep = 0;
+
+    function showStep(index) {
+      steps.forEach((step, i) => {
+        step.classList.toggle('active', i === index);
+      });
+    }
+
+    nextButton.addEventListener('click', () => {
+      currentStep++;
+      if (currentStep >= steps.length) {
+        window.location.href = 'game-board.html';
+      } else {
+        showStep(currentStep);
+      }
+    });
+
+    skipButton.addEventListener('click', () => {
+      window.location.href = 'game-board.html';
+    });
+  </script>
+</body>
+</html>

@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('joinRoom', {
             roomId: enteredPassword,
             username: uniqueUsername,
-            avatar: localStorage.getItem('currentAvatar'),
+            avatar: avatarList[currentAvatarIdx]
         });
         // Update currentUsername to the unique one for this session
         currentUsername = uniqueUsername;
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (PLAY_CINEMATIC) {
                 window.location.href = 'game-intro.html';
             } else {
-                window.location.href = 'game-board.html';
+                window.location.href = 'tutorial.html';
             }
         });
         socket.on('roomError', ({ message }) => {
