@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pigeon Crossing Game</title>
+    <link rel="stylesheet" href="minigame1_style.css">
+</head>
+<body>
+    <h1>Pigeon Crossing</h1>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script src="minigame1_game.js"></script>
+</body>
+</html> 
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pigeon Crossing Game</title>
+    <link rel="stylesheet" href="minigame1_style.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Pigeon Crossing</h1>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script>
+        const socket = io('http://localhost:3000'); // Adjust if deployed
+
+        socket.on('connect', () => {
+            console.log('[MiniGame] Connected to server');
+        });
+
+        socket.on('gameStarted', ({ players }) => {
+            const usernames = players.map(p => p.name);
+            localStorage.setItem('playerUsernames', JSON.stringify(usernames));
+            console.log('[MiniGame] Saved usernames:', usernames);
+        });
+
+        // Optionally, fallback fetch from API if usernames not yet in storage
+        const roomId = localStorage.getItem('roomPassword');
+            if (!localStorage.getItem('playerUsernames') && roomId) {
+                fetch(`/api/rooms/${roomId}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!Array.isArray(data.players)) throw new Error("Missing players array");
+                        const names = data.players.map(p => p.name);
+                        localStorage.setItem('playerUsernames', JSON.stringify(names));
+                        console.log('[MiniGame] Fetched usernames via REST:', names);
+                    })
+                    .catch(err => console.warn('[MiniGame] Failed to fetch players:', err));
+            }
+    </script>
+    <script src="minigame1_game.js"></script>
+</body>
+</html> -->
