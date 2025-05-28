@@ -100,10 +100,10 @@
         .grid-cell.center {
             background: #3af !important;
         }
-        .grid-cell.corner {
-            background: #eee !important;
-            border: 2px solid #888;
-        }
+        /* .grid-cell.corner { */
+            /* background: #eee !important; */
+            /* border: 2px solid #888; */
+        /* } */
         .grid-cell .token {
             font-size: 2.5rem;
             color: #111;
@@ -188,7 +188,7 @@
                     return {
                         name: player,
                         color: colors[idx % 4],
-                        avatar: 'avatar1.png',
+                        avatar: `Player${idx + 1}.png`, 
                         tokens: 5,
                         alive: true
                     };
@@ -265,7 +265,7 @@
             socket.emit('joinRoom', {
                 roomId,
                 username,
-                avatar: 'avatar1.png', // or store avatar in localStorage
+                avatar: localStorage.getItem('currentAvatar'),
                 color: null // server assigns
             });
         }
@@ -321,16 +321,67 @@
                 playerCard.style.alignItems = 'center';
                 playerCard.style.gap = '16px';
                 playerCard.style.padding = '16px';
-                playerCard.innerHTML = `
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;">
-                        <img src="${player.avatar}" alt="Avatar" class="avatar" style="width:64px;height:64px;border-radius:50%;background:#fff;object-fit:cover;box-shadow:0 0 8px #0007;">
-                        <div style="color:#fff;text-align:center;width:100%;">
-                            <div class="player-name" style="font-weight:bold;font-size:1.2em;margin-bottom:4px;">${player.name}${idx === currentPlayerIdx ? ' <span style=\'font-weight:bold\'>(Turn)</span>' : ''}</div>
-                            <div class="player-status" style="font-size:0.9em;opacity:0.8;">${player.alive ? 'Alive' : 'Eliminated'}</div>
-                            <div class="player-tokens" style="font-size:0.9em;opacity:0.8;">Tokens: ${player.tokens}</div>
-                        </div>
-                    </div>
-                `;
+                // playerCard.innerHTML = `
+                //     <div style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;">
+                //         <img src="images/${player.avatar}" alt="Avatar" class="avatar" style="width:64px;height:64px;border-radius:50%;background:#fff;object-fit:cover;box-shadow:0 0 8px #0007;">
+                //         <div style="color:#fff;text-align:center;width:100%;">
+                //             <div class="player-name" style="font-weight:bold;font-size:1.2em;margin-bottom:4px;">${player.name}${idx === currentPlayerIdx ? ' <span style=\'font-weight:bold\'>(Turn)</span>' : ''}</div>
+                //             <div class="player-status" style="font-size:0.9em;opacity:0.8;">${player.alive ? 'Alive' : 'Eliminated'}</div>
+                //             <div class="player-tokens" style="font-size:0.9em;opacity:0.8;">Tokens: ${player.tokens}</div>
+                //         </div>
+                //     </div>
+                // `;
+                const container = document.createElement('div');
+                container.style.display = 'flex';
+                container.style.flexDirection = 'column';
+                container.style.alignItems = 'center';
+                container.style.gap = '8px';
+                container.style.width = '100%';
+
+                // Avatar image
+                console.log(` Avatar for ${player.name}:`, player.avatar);
+                const avatarImg = document.createElement('img');
+                avatarImg.src = `images/${player.avatar}`;
+                avatarImg.alt = `${player.name}'s avatar`;
+                avatarImg.style.width = '64px';
+                avatarImg.style.height = '64px';
+                avatarImg.style.borderRadius = '50%';
+                avatarImg.style.background = '#fff';
+                avatarImg.style.objectFit = 'cover';
+                avatarImg.style.boxShadow = '0 0 8px #0007';
+                container.appendChild(avatarImg);
+
+                // Text info
+                const textDiv = document.createElement('div');
+                textDiv.style.color = '#fff';
+                textDiv.style.textAlign = 'center';
+                textDiv.style.width = '100%';
+
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'player-name';
+                nameDiv.style.fontWeight = 'bold';
+                nameDiv.style.fontSize = '1.2em';
+                nameDiv.style.marginBottom = '4px';
+                nameDiv.innerHTML = `${player.name}${idx === currentPlayerIdx ? ' <span style="font-weight:bold">(Turn)</span>' : ''}`;
+                textDiv.appendChild(nameDiv);
+
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'player-status';
+                statusDiv.style.fontSize = '0.9em';
+                statusDiv.style.opacity = '0.8';
+                statusDiv.innerText = player.alive ? 'Alive' : 'Eliminated';
+                textDiv.appendChild(statusDiv);
+
+                const tokensDiv = document.createElement('div');
+                tokensDiv.className = 'player-tokens';
+                tokensDiv.style.fontSize = '0.9em';
+                tokensDiv.style.opacity = '0.8';
+                tokensDiv.innerText = `Tokens: ${player.tokens}`;
+                textDiv.appendChild(tokensDiv);
+
+                container.appendChild(textDiv);
+                playerCard.appendChild(container);
+
                 playerListVertical.appendChild(playerCard);
             });
         }
@@ -367,17 +418,16 @@
                     );
 
                     if (isCorner) {
-                        cell.classList.add('corner');
                         const player = playerCornerMap[`${y},${x}`];
                         if (player) {
-                            cell.style.background = player.color + '33';
+                            cell.style.background = player.color;
                             cell.style.border = `2px solid ${player.color}`;
-                            cell.innerHTML = `<span class="token" style="color:${player.color};">L</span>`;
+                            cell.innerHTML = `<span class="token" style="color:#fff;">┼</span>`;
                             board[y][x] = '┼';
                         } else {
-                            cell.innerHTML = '';
                             cell.style.background = '#eee';
                             cell.style.border = '2px solid #888';
+                            cell.innerHTML = '';
                         }
                     }
                     board[3][3] = board[3][3] || '┼';
@@ -554,7 +604,7 @@
                             return {
                                 name: player,
                                 color: colors[idx % 4],
-                                avatar: 'avatar1.png',
+                                avatar: player.avatar,
                                 tokens: 5,
                                 alive: true
                             };

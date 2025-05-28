@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Add debug logging
     const DEBUG = true;
-    const PLAY_CINEMATIC = true; // Toggle false to skip cinematic for debugging
+    const PLAY_CINEMATIC = false; // Toggle false to skip cinematic for debugging
 
     function debugLog(...args) {
         if (DEBUG) {
@@ -60,10 +60,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUsername = '';
     let currentAvatarIdx = 0;
     const avatarList = [
-        'avatar1.png',
-        'avatar2.png',
-        'avatar3.png',
-        'avatar4.png'
+        'Player1.png',
+        'Player2.png',
+        'Player3.png',
+        'Player4.png'
     ];
 
     function randomUsername() {
@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('createRoom', {
             roomId: newPassword,
             username: currentUsername,
-            avatar: avatarList[currentAvatarIdx]
+            avatar: localStorage.getItem('currentAvatar'),
         });
     });
 
@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('joinRoom', {
             roomId: enteredPassword,
             username: uniqueUsername,
-            avatar: avatarList[currentAvatarIdx]
+            avatar: localStorage.getItem('currentAvatar'),
         });
         // Update currentUsername to the unique one for this session
         currentUsername = uniqueUsername;

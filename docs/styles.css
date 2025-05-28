@@ -7,7 +7,7 @@
 body {
     font-family: 'Arial', sans-serif;
     min-height: 100vh;
-    background: url('game-background.jpg') center center/cover no-repeat;
+    background: url('images/game-background.jpg') center center/cover no-repeat;
     color: #ffffff;
     display: flex;
     justify-content: center;
@@ -73,6 +73,7 @@ body {
     margin-bottom: 2rem;
     text-shadow: 0 0 10px rgba(0,0,0,0.7);
     background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -326,6 +327,7 @@ h2 {
     max-width: 600px;
     text-align: center;
     background: none !important;
+    background-clip: text;
     -webkit-background-clip: initial !important;
     -webkit-text-fill-color: white !important;
 }

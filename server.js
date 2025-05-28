@@ -33,13 +33,14 @@ app.use(express.json());
 class GameRoom {
     constructor(roomId, hostUsername, hostAvatar, hostColor) {
         this.roomId = roomId;
-        this.players = [{
-            name: hostUsername,
-            avatar: hostAvatar || 'avatar1.png',
-            color: hostColor || '#e74c3c',
-            tokens: 5,
-            alive: true
-        }];
+        // this.players = [{
+        //     name: hostUsername,
+        //     avatar: hostAvatar || 'avatar1.png',
+        //     color: hostColor || '#e74c3c',
+        //     tokens: 5,
+        //     alive: true
+        // }];
+        this.players = [];
         this.gameState = {
             status: 'waiting',
             startTime: null,
@@ -53,18 +54,21 @@ class GameRoom {
         this.board[6][6] = '┼';
         this.board[3][3] = '┼'; // center tile
         this.maxPlayers = 4;
+
+        this.addPlayer(hostUsername, hostColor);
     }
 
-    addPlayer(username, avatar, color) {
+    addPlayer(username, color) {
         if (this.players.length >= this.maxPlayers || this.players.some(p => p.name === username)) {
             return false;
         }
         const colors = ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'];
-        const avatars = ['avatar1.png', 'avatar2.png', 'avatar3.png', 'avatar4.png'];
-        const idx = this.players.length % 4;
+        const avatars = ['Player1.png', 'Player2.png', 'Player3.png', 'Player4.png'];
+        // const idx = this.players.length % 4;
+        const idx = this.players.length;
         this.players.push({
             name: username,
-            avatar: avatar || avatars[idx],
+            avatar: avatars[idx],
             color: color || colors[idx],
             tokens: 5,
             alive: true
@@ -164,7 +168,14 @@ function isPathToCorner(board) {
         [N - 1, N - 1]
     ];
 
-    return corners.some(([cy, cx]) => visited[cy][cx]);
+    for (const [cy, cx] of corners) {
+        if (visited[cy][cx]) {
+            return [cy, cx];
+        }
+    }
+
+
+    return null; // No path to any corner found
 }
 
 const activeRooms = new Map();
@@ -206,20 +217,20 @@ io.on('connection', (socket) => {
 
         if (existingPlayer) {
             console.log(`[SERVER] ${username} is reconnecting.`);
-            socket.join(roomId);
-            socketToRoomMap.set(socket.id, roomId);
+            // socket.join(roomId);
+            // socketToRoomMap.set(socket.id, roomId);
         } else {
             if (room.players.length >= room.maxPlayers) {
                 socket.emit('roomError', { message: 'Room is full' });
                 return;
             }
 
-            room.addPlayer(username, avatar, color);
+            room.addPlayer(username, color);
             socket.join(roomId);
             socketToRoomMap.set(socket.id, roomId);
         }
 
-        room.addPlayer(username, avatar, color);
+        // room.addPlayer(username, avatar, color);
         socket.join(roomId);
         socketToRoomMap.set(socket.id, roomId);
         console.log(`Socket ${socket.id} joined room ${roomId}`);
@@ -232,8 +243,8 @@ io.on('connection', (socket) => {
             players: room.players
         });
 
-        console.log(`[DEBUG] Emitting gameUpdate on joinRoom. Board snapshot:`);
-        console.table(room.board);
+        // console.log(`[DEBUG] Emitting gameUpdate on joinRoom. Board snapshot:`);
+        // console.table(room.board);
 
         socket.emit('gameUpdate', {
             board: room.board || Array.from({ length: 7 }, () => Array(7).fill(null)),
@@ -344,15 +355,28 @@ io.on('connection', (socket) => {
         // Ensure center is seeded
         room.board[3][3] = room.board[3][3] || '┼';
 
-        if (isPathToCorner(room.board)) {
-            console.log("💥 BOOM detected on server!");
-            io.to(roomId).emit('boomTriggered', {
-                playerName: room.players[playerIdx]?.name || "Unknown"
-            });
-        } else {
-           console.log("[SERVER] No path to corner yet.");
-        }
+        const cornerReached = isPathToCorner(room.board);
+        if (cornerReached) {
+            console.log("💥 BOOM detected at corner:", cornerReached);
 
+            const [cy, cx] = cornerReached;
+            const cornerKey = `${cy},${cx}`;
+            const cornerPositions = ['0,0', '0,6', '6,6', '6,0'];
+
+            const index = cornerPositions.indexOf(cornerKey);
+            if (index !== -1 && room.players[index]) {
+                const victim = room.players[index];
+                victim.alive = false; // optional if you want to mark as dead
+                io.to(roomId).emit('boomTriggered', {
+                    playerName: victim.name
+                });
+            } else {
+                console.warn("Corner reached but player not found:", cornerKey);
+                io.to(roomId).emit('boomTriggered', {
+                    playerName: 'Unknown (unassigned corner)'
+                });
+            }
+        }
 
         const player = room.players[playerIdx];
         if (player) {
