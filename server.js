@@ -183,6 +183,8 @@ const socketToRoomMap = new Map(); // Track which room each socket belongs to
 
 // --- MINIGAME1 OBSTACLE SYNC SETUP ---
 const mg1Obstacles = new Map();
+const mg1Winners = new Map(); 
+
 const CANVAS_HEIGHT = 700;
 const OBSTACLE_WIDTH = 40;
 const OBSTACLE_HEIGHT = 30;
@@ -212,7 +214,7 @@ io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
     socket.onAny((event, ...args) => {
-        console.log(`[SOCKET DEBUG] Received event: ${event}`, ...args);
+        // console.log(`[SOCKET DEBUG] Received event: ${event}`, ...args);
     });
 
     socket.on('createRoom', ({ roomId, username, avatar, color }) => {
@@ -489,7 +491,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('mg1PlayerMove', ({ roomId, username, x, y, direction, moving }) => {
-        console.log(`[SERVER] mg1PlayerMove from ${username} in ${roomId}: (${x}, ${y}), dir=${direction}, moving=${moving}`);
+        // console.log(`[SERVER] mg1PlayerMove from ${username} in ${roomId}: (${x}, ${y}), dir=${direction}, moving=${moving}`);
         
         // Emit to ALL players in room INCLUDING the one who moved
         io.to(roomId).emit('mg1PlayerMoved', {
@@ -497,10 +499,24 @@ io.on('connection', (socket) => {
             x, y, direction, moving
         });
 
-        console.log(`[SERVER] Broadcasting mg1PlayerMoved for ${username} to ALL clients in room ${roomId}`);
+        // console.log(`[SERVER] Broadcasting mg1PlayerMoved for ${username} to ALL clients in room ${roomId}`);
     });
 
+    socket.on('mg1PlayerHit', ({ roomId, username }) => {
+        console.log(`[SERVER] ${username} was hit in minigame1`);
+        io.to(roomId).emit('mg1PlayerEliminated', { username });
+    });
 
+    socket.on('mg1PlayerFinished', ({ roomId, username }) => {
+        console.log(`[SERVER] ${username} has finished the race in ${roomId}`);
+        if (!mg1Winners.has(roomId)) mg1Winners.set(roomId, []);
+        
+        const winners = mg1Winners.get(roomId);
+        if (!winners.includes(username)) {
+            winners.push(username);
+            io.to(roomId).emit('mg1PlayerFinished', { username, place: winners.length });
+        }
+    });
 
     socket.on('disconnect', () => {
         const roomId = socketToRoomMap.get(socket.id);
@@ -524,7 +540,7 @@ setInterval(() => {
             }
         });
         io.to(roomId).emit('mg1ObstaclesUpdate', { obstacles: obsList });
-        console.log(`[SERVER] Sent mg1ObstaclesUpdate to ${roomId} with ${obsList.length} obstacles`);
+        // console.log(`[SERVER] Sent mg1ObstaclesUpdate to ${roomId} with ${obsList.length} obstacles`);
     }
 }, 60);
 

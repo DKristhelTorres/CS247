@@ -7,8 +7,13 @@
     <link rel="stylesheet" href="minigame1_style.css">
 </head>
 <body>
-    <h1>Pigeon Crossing</h1>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div class="game-container">
+        <div id="playerSidebar"></div> 
+        <div class="game-area">
+            <h1>Pigeon Crossing</h1>
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+        </div>
+    </div>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="minigame1_game.js"></script>

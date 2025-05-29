@@ -11,6 +11,8 @@ const SERVER_URL = window.location.hostname === 'localhost'
 
 const socket = io(SERVER_URL);
 const roomId = localStorage.getItem('roomPassword');
+// const sidebar = document.getElementById('playerSidebar');
+
 
 // Load background image
 const backgroundImage = new Image();
@@ -47,22 +49,76 @@ function loadSpriteSheet(path) {
 }
 
 function createPigeon(idx, name) {
+    if (pigeons.find(p => p.name === name)) return; 
+    const spawnY = (idx + 0.5) * (CANVAS_HEIGHT / 4) - 32;
     const pigeon = {
         name, // <-- attach username
         walkRight: loadSpriteSheet(`minigame1_PIGEON_ASSETS_PNG/WALK/WALK_RIGHT/Pigeon${idx + 1}.png`),
         walkLeft: loadSpriteSheet(`minigame1_PIGEON_ASSETS_PNG/WALK/WALK_LEFT/Pigeon${idx + 1}.png`),
         idle: loadSpriteSheet(`minigame1_PIGEON_ASSETS_PNG/IDLE/PIGEON_FRONT/Pigeon${idx + 1}.png`),
         x: 50,
-        y: (idx + 0.5) * (CANVAS_HEIGHT / 4) - 32,
+        y: spawnY,
+        spawnX: 50,        
+        spawnY: spawnY,    
         width: 64,
         height: 64,
         direction: 'right',
         moving: false,
         frame: 0,
-        frameTick: 0
+        frameTick: 0,
+        hasFinished: false,
     };
     pigeons.push(pigeon);
 }
+
+function renderSidebar(players) {
+    sidebar.innerHTML = ''; // Clear old entries
+    players.forEach((name, idx) => {
+        const card = document.createElement('div');
+        card.className = 'player-card';
+        const avatar = document.createElement('img');
+        avatar.className = 'avatar';
+        avatar.src = `../images/Player${idx + 1}.png`; // Adjust path if needed
+
+        const label = document.createElement('div');
+        label.textContent = name;
+        label.style.textAlign = 'center';
+
+        card.appendChild(avatar);
+        card.appendChild(label);
+        sidebar.appendChild(card);
+    });
+}
+
+function updatePlayerList(players) {
+    // const container = document.getElementById('player-list');
+    const container = document.getElementById('playerSidebar'); 
+    container.innerHTML = '';
+    players.forEach((p) => {
+        const card = document.createElement('div');
+        card.className = 'player-card';
+        card.style.backgroundColor = p.color || '#444';
+
+        const avatar = document.createElement('img');
+        avatar.src = `../images/${p.avatar || 'Player1.png'}`;
+        avatar.alt = p.name;
+        avatar.className = 'player-avatar';
+
+        const name = document.createElement('div');
+        name.className = 'player-name';
+        name.textContent = p.name;
+
+        const info = document.createElement('div');
+        info.className = 'player-info';
+        info.textContent = 'Alive'; // or tokens if available
+
+        card.appendChild(avatar);
+        card.appendChild(name);
+        card.appendChild(info);
+        container.appendChild(card);
+    });
+}
+
 
 
 
@@ -82,30 +138,37 @@ const carSprites = {
 };
 
 // --- SOCKET SETUP ---
-socket.emit('mg1JoinGame', roomId);
+// socket.emit('mg1JoinGame', roomId);
 
 let myPlayerIndex = null;
 
-socket.on('mg1Init', ({ obstacles: initialObs, players }) => {
-    obstacles = initialObs;
+// socket.on('mg1Init', ({ obstacles: initialObs, players }) => {
+//     obstacles = initialObs;
     
-    players.forEach((name, idx) => {
-        createPigeon(idx, name); // pass name here
-        if (name === myUsername) {
-            myPlayerIndex = idx;
-        }
-    });
+//     players.forEach((name, idx) => {
+//         createPigeon(idx, name); // pass name here
+//         if (name === myUsername) {
+//             myPlayerIndex = idx;
+//         }
+//     });
 
-    console.log(`[DEBUG] My index: ${myPlayerIndex}`);
-});
+//     console.log(`[DEBUG] My index: ${myPlayerIndex}`);
+//     updatePlayerList(players.map((name, idx) => ({
+//         name,
+//         avatar: `Player${(idx + 1)}.png`,
+//         color: ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'][idx % 4]
+//     })));
+//     renderSidebar(players);
+
+// });
 
 socket.on('mg1ObstaclesUpdate', ({ obstacles: updatedObs }) => {
     obstacles = updatedObs;
-    console.log(`[DEBUG] Received mg1ObstaclesUpdate: ${obstacles.length} obstacles`);
+    // console.log(`[DEBUG] Received mg1ObstaclesUpdate: ${obstacles.length} obstacles`);
 });
 
 socket.on('mg1PlayerMoved', ({ username, x, y, direction, moving }) => {
-    console.log(`[DEBUG] RECEIVED movement for ${username}: (${x}, ${y})`);
+    // console.log(`[DEBUG] RECEIVED movement for ${username}: (${x}, ${y})`);
 
     let p = pigeons.find(p => p.name === username);
     if (!p && username !== myUsername) {
@@ -125,7 +188,19 @@ socket.on('mg1PlayerMoved', ({ username, x, y, direction, moving }) => {
     }
 });
 
-
+socket.on('mg1PlayerEliminated', ({ username }) => {
+    console.log(`[DEBUG] Resetting pigeon: ${username}`);
+    const p = pigeons.find(p => p.name === username);
+    if (p) {
+        p.x = 50;
+        p.y = (pigeons.indexOf(p) + 0.5) * (CANVAS_HEIGHT / 4) - 32;
+        p.moving = false;
+        p.frame = 0;
+        p.frameTick = 0;
+    } else {
+        console.warn(`[WARN] Could not reset pigeon for: ${username}`);
+    }
+});
 
 
 // --- DRAWING ---
@@ -196,8 +271,10 @@ function drawPigeons() {
 
 
 function update() {
+    let p = null;
+
     if (myPlayerIndex !== null && pigeons[myPlayerIndex]) {
-        const p = pigeons[myPlayerIndex];
+        p = pigeons[myPlayerIndex];
         p.moving = false;
 
         if (keys['ArrowRight']) { p.x += 2; p.direction = 'right'; p.moving = true; }
@@ -208,9 +285,8 @@ function update() {
         // Clamp to canvas
         p.x = Math.max(0, Math.min(CANVAS_WIDTH - p.width, p.x));
         p.y = Math.max(0, Math.min(CANVAS_HEIGHT - p.height, p.y));
-    }
-    if (myPlayerIndex !== null) {
-        const p = pigeons[myPlayerIndex];
+        
+        // Emit movement
         socket.emit('mg1PlayerMove', {
             roomId,
             username: myUsername,
@@ -219,10 +295,33 @@ function update() {
             direction: p.direction,
             moving: p.moving
         });
-        console.log(`[DEBUG] Sent mg1PlayerMove: ${myUsername} (${p.x}, ${p.y}) ${p.direction} ${p.moving}`);
+
+        // Check collision with each obstacle
+        for (let obs of obstacles) {
+            if (checkCollision(p, obs)) {
+                console.log(`[COLLISION] ${myUsername} hit by car!`);
+                socket.emit('mg1PlayerHit', { roomId, username: myUsername });
+                break;
+            }
+        }
+
+        if (!p.hasFinished && p.x + p.width >= CANVAS_WIDTH - 10) {
+            p.hasFinished = true;
+            socket.emit('mg1PlayerFinished', { roomId, username: myUsername });
+            console.log(`[DEBUG] ${myUsername} finished the race!`);
+        }
     }
 }
 
+
+function checkCollision(rect1, rect2) {
+    return (
+        rect1.x < rect2.x + rect2.width &&
+        rect1.x + rect1.width > rect2.x &&
+        rect1.y < rect2.y + rect2.height &&
+        rect1.y + rect1.height > rect2.y
+    );
+}
 
 // --- MAIN LOOP ---
 function gameLoop() {
@@ -230,7 +329,30 @@ function gameLoop() {
     draw();
     requestAnimationFrame(gameLoop);
 }
+let sidebar;
 
 window.onload = () => {
+    sidebar = document.getElementById('playerSidebar'); // ✅ DOM is ready now
+
+    socket.emit('mg1JoinGame', roomId);
+    socket.on('mg1Init', ({ obstacles: initialObs, players }) => {
+        obstacles = initialObs;
+        
+        players.forEach((name, idx) => {
+            createPigeon(idx, name);
+            if (name === myUsername) {
+                myPlayerIndex = idx;
+            }
+        });
+
+        console.log(`[DEBUG] My index: ${myPlayerIndex}`);
+        updatePlayerList(players.map((name, idx) => ({
+            name,
+            avatar: `Player${(idx + 1)}.png`,
+            color: ['#e74c3c', '#8e44ad', '#27ae60', '#f1c40f'][idx % 4]
+        })));
+        renderSidebar(players);
+    });
+
     gameLoop();
 };
