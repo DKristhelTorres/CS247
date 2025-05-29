@@ -202,6 +202,50 @@ socket.on('mg1PlayerEliminated', ({ username }) => {
     }
 });
 
+socket.on('mg1Results', ({ finishOrder, tileRewards }) => {
+    alert(`🏁 Final Results:\n` +
+        finishOrder.map((name, i) => `${i + 1}. ${name} (+${tileRewards[name]} tiles)`).join('\n'));
+    // Optionally: save to localStorage to use later in board game
+    localStorage.setItem('mg1_tileRewards', JSON.stringify(tileRewards));
+});
+
+
+socket.on('mg1StartTimer', ({ duration }) => {
+    let timeLeft = duration;
+
+    // Clean up any existing timer
+    let existingTimer = document.getElementById('countdownTimer');
+    if (existingTimer) {
+        existingTimer.remove();
+    }
+
+    const timerDiv = document.createElement('div');
+    timerDiv.id = 'countdownTimer';
+    timerDiv.style.position = 'absolute';
+    timerDiv.style.top = '20px';
+    timerDiv.style.right = '20px';
+    timerDiv.style.fontSize = '24px';
+    timerDiv.style.color = 'white';
+    timerDiv.style.background = 'rgba(0,0,0,0.5)';
+    timerDiv.style.padding = '10px 16px';
+    timerDiv.style.borderRadius = '8px';
+    timerDiv.style.fontWeight = 'bold';
+
+    timerDiv.textContent = `Time left: ${timeLeft}s`;
+    document.body.appendChild(timerDiv);
+
+    const interval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft >= 0) {
+            timerDiv.textContent = `Time left: ${timeLeft}s`;
+        } else {
+            clearInterval(interval);
+            timerDiv.remove();
+        }
+    }, 1000);
+});
+
+
 
 // --- DRAWING ---
 function draw() {
@@ -307,7 +351,9 @@ function update() {
 
         if (!p.hasFinished && p.x + p.width >= CANVAS_WIDTH - 10) {
             p.hasFinished = true;
-            socket.emit('mg1PlayerFinished', { roomId, username: myUsername });
+            const finishedAt = Date.now(); // Record finish time
+            console.log(`[DEBUG] ${myUsername} finished at ${finishedAt}`);
+            socket.emit('mg1PlayerFinished', { roomId, username: myUsername, finishedAt });
             console.log(`[DEBUG] ${myUsername} finished the race!`);
         }
     }
