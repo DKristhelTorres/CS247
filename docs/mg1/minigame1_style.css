@@ -85,3 +85,20 @@ h1 {
     font-size: 14px;
     color: #ccc;
 }
+
+#continue-btn {
+  padding: 10px 20px;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #eee;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.1s ease;
+}
+
+#continue-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  color: #666;
+  transform: scale(0.97);
+}

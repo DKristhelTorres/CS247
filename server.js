@@ -6,7 +6,7 @@ const path = require('path');
 const { log } = require('console');
 const mg1FinishOrders = new Map();  // Map<roomId, [username1, username2, ...]>
 const mg1FinishTimers = new Map(); // Map<roomId, NodeJS.Timeout>
-const TIME_OUT_DURATION = 5; // 60 seconds
+const TIME_OUT_DURATION = 30; // 60 seconds
 const resultsSeenMap = new Map(); // Map<roomId, Set<username>>
 
 

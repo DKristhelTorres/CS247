@@ -323,19 +323,41 @@ document.addEventListener('DOMContentLoaded', () => {
         hideTitleAndDescription();
     });
 
-    copyPassword.addEventListener('click', () => {
-        navigator.clipboard.writeText(roomPassword.textContent)
-            .then(() => {
-                const originalText = copyPassword.textContent;
-                copyPassword.textContent = 'Copied!';
-                setTimeout(() => {
-                    copyPassword.textContent = originalText;
-                }, 2000);
-            })
-            .catch(err => {
-                console.error('Failed to copy password:', err);
+    document.addEventListener('DOMContentLoaded', () => {
+        const copyPassword = document.getElementById('copyPassword');
+        const roomPassword = document.getElementById('roomPassword');
+
+        if (copyPassword && roomPassword) {
+            copyPassword.addEventListener('click', () => {
+                navigator.clipboard.writeText(roomPassword.textContent)
+                    .then(() => {
+                        const originalText = copyPassword.textContent;
+                        copyPassword.textContent = 'Copied!';
+                        setTimeout(() => {
+                            copyPassword.textContent = originalText;
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy password:', err);
+                    });
             });
+        }
     });
+
+
+    // copyPassword.addEventListener('click', () => {
+    //     navigator.clipboard.writeText(roomPassword.textContent)
+    //         .then(() => {
+    //             const originalText = copyPassword.textContent;
+    //             copyPassword.textContent = 'Copied!';
+    //             setTimeout(() => {
+    //                 copyPassword.textContent = originalText;
+    //             }, 2000);
+    //         })
+    //         .catch(err => {
+    //             console.error('Failed to copy password:', err);
+    //         });
+    // });
 
     function showJoinError(message) {
         let errorDiv = document.getElementById('join-error');
