@@ -1,154 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Play&Boom – Tutorial</title>
-    <link rel="stylesheet" href="styles.css" />
-    <style>
-      body {
-        background: rgba(30, 30, 30, 0.95);
-        margin: 0;
-        height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: sans-serif;
-      }
-      .tutorial-container {
-        width: 90%;
-        max-width: 700px;
-        padding: 40px;
-        background: rgba(30, 30, 30, 0.95);
-        border-radius: 16px;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-      }
-      .tutorial-step {
-        display: none;
-        flex-direction: column;
-        gap: 12px;
-        text-align: center;
-      }
-      .tutorial-step.active {
-        display: flex;
-      }
-      .tutorial-step h2 {
-        font-size: 2em;
-        margin: 0;
-      }
-      .tutorial-step p {
-        font-size: 1.2em;
-        margin: 0;
-      }
-      .tutorial-gif {
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tutorial - Play&Boom</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      background: rgba(30, 30, 30, 0.95);
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .tutorial-container {
+      max-width: 700px;
+      width: 90%;
+      padding: 40px;
+      background: rgba(30, 30, 30, 0.95);
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+    }
+
+    .tutorial-step {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      text-align: center;
+    }
+
+    .tutorial-step.active {
+      display: flex;
+    }
+
+    .tutorial-step h2 {
+      font-size: 2em;
+      margin: 0;
+    }
+
+    .tutorial-step p {
+      font-size: 1.2em;
+      margin: 0;
+    }
+    .tutorial-gif {
         max-width: 100%;
         height: auto;
         margin-top: 10px;
         border-radius: 8px;
-      }
-      .button-row {
-        margin-top: 24px;
-        display: flex;
-        gap: 12px;
-        justify-content: center;
-      }
-      .button-row button {
-        padding: 10px 18px;
-        border: none;
-        border-radius: 6px;
-        font-size: 1em;
-        cursor: pointer;
-      }
-      .button-row .secondary {
-        background: #aaa;
-        color: #000;
-      }
-      #voteStatus {
-        position: absolute;
-        bottom: 10px;
-        width: 100%;
-        text-align: center;
-        font-size: 1.2rem;
-        color: #fff;
-      }
-    </style>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  </head>
-  <body>
-    <div class="tutorial-container">
-      <div class="tutorial-step active" id="step-1">
-        <h2>🎞️ Earn Tokens</h2>
-        <p>Win mini-games to earn circuit tokens.</p>
-        <p>The first pigeon to cross the street earns the most tokens.</p>
-        <img src="gifs/step1-tutorial.gif" class="tutorial-gif" />
-      </div>
-      <div class="tutorial-step" id="step-2">
-        <h2>🔀 Place Tiles</h2>
-        <p>Use tokens to place or swap tiles on the board.</p>
-        <img src="gifs/step2-tutorial.gif" class="tutorial-gif" />
-      </div>
-      <div class="tutorial-step" id="step-3">
-        <h2>💥 Trigger the Boom</h2>
-        <p>
-          Complete a path from the center to any corner to make a player
-          explode!
-        </p>
-        <img src="gifs/step3-tutorial.gif" class="tutorial-gif" />
-      </div>
-      <div class="button-row">
-        <button id="nextBtn">Next →</button>
-        <button id="skipBtn" class="secondary">Skip Tutorial</button>
-      </div>
+        }
+
+    .button-row {
+      margin-top: 24px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    button {
+      padding: 10px 18px;
+      border-radius: 6px;
+      border: none;
+      background-color: #333;
+      color: white;
+      font-size: 1em;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background-color: #aaa;
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="tutorial-container">
+    <div id="step-1" class="tutorial-step active">
+      <h2>🎞️ Earn Tokens</h2>
+      <p>Win mini-games to earn circuit tokens.</p>
+      <p>The first pigeon to cross the street earns the most tokens.</p>
+      <img src="gifs/step1-tutorial.gif" alt="Pigeon Crossing Demo" class="tutorial-gif" />
     </div>
-    <div id="voteStatus"></div>
+    <div id="step-2" class="tutorial-step">
+      <h2>🔀 Place Tiles</h2>
+      <p>Use tokens to place or swap tiles on the board.</p>
+      <img src="gifs/step2-tutorial.gif" alt="Placing a tile demo" class="tutorial-gif" />
+    </div>
+    <div id="step-3" class="tutorial-step">
+      <h2>💥 Trigger the Boom</h2>
+      <p>Complete a path from the center to any corner to make a player explode!</p>
+      <img src="gifs/step3-tutorial.gif" alt="Placing a tile demo" class="tutorial-gif" />
+    </div>
+    <div class="button-row">
+      <button id="next-button">Next →</button>
+      <button id="skip-button" class="secondary">Skip Tutorial</button>
+    </div>
+  </div>
 
-    <script>
-      const steps = document.querySelectorAll(".tutorial-step");
-      const nextBtn = document.getElementById("nextBtn");
-      const skipBtn = document.getElementById("skipBtn");
-      const voteEl = document.getElementById("voteStatus");
+  <script>
+    const steps = document.querySelectorAll('.tutorial-step');
+    const nextButton = document.getElementById('next-button');
+    const skipButton = document.getElementById('skip-button');
+    let currentStep = 0;
 
-      const SERVER_URL =
-        location.hostname === "localhost"
-          ? "http://localhost:3000"
-          : "https://cs247.onrender.com";
-      const socket = io(SERVER_URL);
-      const roomId = localStorage.getItem("roomPassword");
-
-      socket.on("connect", () => {
-        console.log("[CLIENT] connected as", socket.id);
-        socket.emit("joinVoteRoom", roomId);
-        console.log("[CLIENT] joinVoteRoom →", roomId);
+    function showStep(index) {
+      steps.forEach((step, i) => {
+        step.classList.toggle('active', i === index);
       });
+    }
 
-      socket.on("voteCount", ({ action, count, total }) => {
-        voteEl.textContent = `${count} / ${total} voted for ${action}`;
-      });
-      socket.on("voteComplete", ({ action }) => {
-        voteEl.textContent = "";
-        if (action === "nextTut") advance();
-        else if (action === "skipTut") goMinigame();
-      });
+    nextButton.addEventListener('click', () => {
+      currentStep++;
+      if (currentStep >= steps.length) {
+        window.location.href = 'mg1/minigame1_index.html';
+      } else {
+        showStep(currentStep);
+      }
+    });
 
-      let current = 0;
-      function show(i) {
-        steps.forEach((s, idx) => s.classList.toggle("active", idx === i));
-      }
-      function advance() {
-        current++;
-        if (current >= steps.length) goMinigame();
-        else show(current);
-      }
-      function goMinigame() {
-        location.href = "mg1/minigame1_index.html";
-      }
-
-      nextBtn.addEventListener("click", () =>
-        socket.emit("vote", { roomId, action: "nextTut" })
-      );
-      skipBtn.addEventListener("click", () =>
-        socket.emit("vote", { roomId, action: "skipTut" })
-      );
-    </script>
-  </body>
+    skipButton.addEventListener('click', () => {
+      window.location.href = 'mg1/minigame1_index.html';
+    });
+  </script>
+</body>
 </html>

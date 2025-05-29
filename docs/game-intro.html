@@ -1,3 +1,4 @@
+
 <!-- Uncomment the following to have the cinematic intro with timer only (no skip / next buttons): -->
 <!-- <!DOCTYPE html>
 <html lang="en">
@@ -81,149 +82,118 @@
 </body>
 </html> -->
 
+
 <!-- Uncomment the following to have the cinematic intro with skip / next buttons: -->
-<!-- game-intro.html -->
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Play&Boom – Intro</title>
-    <style>
-      body {
-        background: #000;
-        color: #fff;
-        margin: 0;
-        height: 100vh;
-        overflow: hidden;
-        font-family: sans-serif;
-      }
-      .cinematic {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: #000;
-        padding: 2rem;
-        z‐index: 10;
-      }
-      .cinematic-text {
-        font-size: 2.2rem;
-        text-align: center;
-        max-width: 700px;
-        opacity: 0;
-        transition: opacity 0.8s;
-        letter-spacing: 1px;
-        line-height: 1.4;
-        margin-bottom: 2rem;
-      }
-      .cinematic-text.active {
-        opacity: 1;
-      }
-      .cinematic-buttons {
-        display: flex;
-        gap: 1rem;
-      }
-      .cinematic-buttons button {
-        padding: 0.7rem 1.5rem;
-        font-size: 1rem;
-        background: #fff;
-        color: #000;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: bold;
-        transition: background 0.3s ease;
-      }
-      .cinematic-buttons button:hover {
-        background: #ccc;
-      }
-      .vote-status {
-        position: absolute;
-        bottom: 10px;
-        width: 100%;
-        text-align: center;
-        font-size: 1.2rem;
-      }
-    </style>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  </head>
-  <body>
-    <div class="cinematic">
-      <div id="cinematic-text" class="cinematic-text"></div>
-      <div class="cinematic-buttons">
-        <button id="nextBtn">Next</button>
-        <button id="skipBtn">Skip Intro</button>
-      </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Play&Boom - Intro</title>
+  <style>
+    body {
+      background: #000;
+      color: #fff;
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    .cinematic {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      z-index: 10;
+      padding: 2rem;
+    }
+    .cinematic-text {
+      font-size: 2.2rem;
+      text-align: center;
+      max-width: 700px;
+      opacity: 0;
+      transition: opacity 0.8s;
+      letter-spacing: 1px;
+      line-height: 1.4;
+      color: #fff;
+      margin-bottom: 2rem;
+    }
+    .cinematic-text.active {
+      opacity: 1;
+    }
+    .cinematic-buttons {
+      display: flex;
+      gap: 1rem;
+    }
+    .cinematic-buttons button {
+      padding: 0.7rem 1.5rem;
+      font-size: 1rem;
+      background-color: #fff;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+    .cinematic-buttons button:hover {
+      background-color: #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div class="cinematic">
+    <div id="cinematic-text" class="cinematic-text"></div>
+    <div class="cinematic-buttons">
+      <button id="nextBtn">Next</button>
+      <button id="skipBtn">Skip Intro</button>
     </div>
-    <div id="voteStatus" class="vote-status"></div>
+  </div>
 
-    <script>
-      const narrative = [
-        "You are a chaotic and rather unbothered government spy. You are what they call...",
-        "A PIGEON",
-        "In your journey of making abstract nests, you had enough of fighting for crumbs in these New York streets.",
-        "Your job? Trigger in your fellow 'pigeon' mates a segfault in their surveillance system to get rid of the competition.",
-      ];
-      const textEl = document.getElementById("cinematic-text");
-      const nextBtn = document.getElementById("nextBtn");
-      const skipBtn = document.getElementById("skipBtn");
-      const voteEl = document.getElementById("voteStatus");
-      const cinematic = document.querySelector(".cinematic");
+  <script>
+    const narrative = [
+      "You are a chaotic and rather unbothered government spy. You are what they call...",
+      "A PIGEON",
+      "In your journey of making abstract nests, you had enough of fighting for crumbs in these New York streets.",
+      "Your job? Trigger in your fellow 'pigeon' mates a segfault in their surveillance system to get rid of the competition."
+    ];
+    const cinematicText = document.getElementById('cinematic-text');
+    const cinematicDiv = document.querySelector('.cinematic');
+    const nextBtn = document.getElementById('nextBtn');
+    const skipBtn = document.getElementById('skipBtn');
 
-      const SERVER_URL =
-        location.hostname === "localhost"
-          ? "http://localhost:3000"
-          : "https://cs247.onrender.com";
-      const socket = io(SERVER_URL);
-      const roomId = localStorage.getItem("roomPassword");
+    let idx = 0;
 
-      socket.on("connect", () => {
-        console.log("[CLIENT] connected as", socket.id);
-        socket.emit("joinVoteRoom", roomId);
-        console.log("[CLIENT] joinVoteRoom →", roomId);
-      });
+    function showCinematicLine(i) {
+      cinematicText.classList.remove('active');
+      setTimeout(() => {
+        cinematicText.textContent = narrative[i];
+        cinematicText.classList.add('active');
+      }, 200);
+    }
 
-      socket.on("voteCount", ({ action, count, total }) => {
-        voteEl.textContent = `${count} / ${total} voted to ${action}`;
-      });
-      socket.on("voteComplete", ({ action }) => {
-        voteEl.textContent = "";
-        if (action === "next") advanceLine();
-        else if (action === "skip") goTutorial();
-      });
-
-      let idx = 0;
-      function advanceLine() {
-        if (idx < narrative.length) {
-          textEl.classList.remove("active");
-          setTimeout(() => {
-            textEl.textContent = narrative[idx++];
-            textEl.classList.add("active");
-          }, 200);
-        } else {
-          goTutorial();
-        }
+    function nextCinematic() {
+      if (idx < narrative.length) {
+        showCinematicLine(idx);
+        idx++;
+      } else {
+        goToTutorial();
       }
-      function goTutorial() {
-        cinematic.style.display = "none";
-        location.href = "tutorial.html";
-      }
+    }
 
-      nextBtn.addEventListener("click", () =>
-        socket.emit("vote", { roomId, action: "next" })
-      );
-      skipBtn.addEventListener("click", () =>
-        socket.emit("vote", { roomId, action: "skip" })
-      );
+    function goToTutorial() {
+      cinematicDiv.style.display = 'none';
+      window.location.href = "tutorial.html"; // Update target if needed
+    }
 
-      // kick off first line
-      advanceLine();
-    </script>
-  </body>
+    nextBtn.addEventListener('click', nextCinematic);
+    skipBtn.addEventListener('click', goToTutorial);
+
+    // Auto-play first line
+    nextCinematic();
+  </script>
+</body>
 </html>
