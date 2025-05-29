@@ -3,8 +3,12 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const { log } = require('console');
 const mg1FinishOrders = new Map();  // Map<roomId, [username1, username2, ...]>
 const mg1FinishTimers = new Map(); // Map<roomId, NodeJS.Timeout>
+const TIME_OUT_DURATION = 5; // 60 seconds
+const resultsSeenMap = new Map(); // Map<roomId, Set<username>>
+
 
 const app = express();
 const server = http.createServer(app);
@@ -213,29 +217,6 @@ function generateObstacleSet() {
     return result;
 }
 
-// function finishMinigame(roomId, order, room) {
-//     const tileRewards = {};
-
-//     order.forEach((player, index) => {
-//         tileRewards[player] = 4 - index; // 1st=4, 2nd=3...
-//     });
-
-//     room.players.forEach(p => {
-//         if (!(p.name in tileRewards)) {
-//             tileRewards[p.name] = 1; // Everyone gets at least 1
-//         }
-//     });
-
-//     io.to(roomId).emit('mg1Results', { finishOrder: order, tileRewards });
-//     console.log(`[RESULTS] Sent for room ${roomId}:`, tileRewards);
-
-//     mg1FinishOrders.delete(roomId);
-//     if (mg1FinishTimers.has(roomId)) {
-//         clearTimeout(mg1FinishTimers.get(roomId));
-//         mg1FinishTimers.delete(roomId);
-//     }
-// }
-
 function finishMinigame(roomId, order, room) {
     const tileRewards = {};
 
@@ -252,8 +233,15 @@ function finishMinigame(roomId, order, room) {
         order.push(name);
     });
 
+    room._tileRewards = tileRewards;
+
     io.to(roomId).emit('mg1Results', { finishOrder: order, tileRewards });
     console.log(`[RESULTS] Sent for room ${roomId}:`, tileRewards);
+
+    setTimeout(() => {
+        console.log(`[SERVER] Emitting redirectToResults to room ${roomId}`);
+        io.to(roomId).emit('redirectToResults');
+    }, 3000); // 3 seconds before redirecting
 
     // Cleanup
     mg1FinishOrders.delete(roomId);
@@ -265,9 +253,9 @@ function finishMinigame(roomId, order, room) {
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.onAny((event, ...args) => {
-        // console.log(`[SOCKET DEBUG] Received event: ${event}`, ...args);
-    });
+    // socket.onAny((event, ...args) => {
+    //     // console.log(`[SOCKET DEBUG] Received event: ${event}`, ...args);
+    // });
 
     socket.on('createRoom', ({ roomId, username, avatar, color }) => {
         if (activeRooms.has(roomId)) {
@@ -359,7 +347,7 @@ io.on('connection', (socket) => {
         console.log(`Player ${username} joined room ${roomId}. Players now:`, room.players);
     });
 
-    socket.on('startGame', ({ roomId }) => {
+    socket.on('startGame', ({ roomId, tileRewards }) => {
         const room = activeRooms.get(roomId);
         if (!room || !room.startGame()) {
             socket.emit('roomError', { message: 'Game cannot be started' });
@@ -372,21 +360,52 @@ io.on('connection', (socket) => {
         room.board[6][0] = '┼';
         room.board[6][6] = '┼';
         room.board[3][3] = '┼'; // center tile
-        const ranked = [...room.players].sort((a, b) => (room.gameState.scores[b.name] || 0) - (room.gameState.scores[a.name] || 0));
-        const tileCounts = [3, 2, 1, 0];
+        // const ranked = [...room.players].sort((a, b) => (room.gameState.scores[b.name] || 0) - (room.gameState.scores[a.name] || 0));
+        // const tileCounts = [3, 2, 1, 0];
 
         // ranked.forEach((p, i) => {
         //     const rp = room.players.find(player => player.name === p.name);
         //     if (rp) rp.tokens = tileCounts[i] || 0;
         // });
-        ranked.forEach((p, i) => {
-            const rp = room.players.find(player => player.name === p.name);
-            if (rp) {
-                const assigned = tileCounts[i] || 0;
-                rp.tokens = assigned;
-                rp.initialTiles = assigned; 
-            }
-        });
+        // ranked.forEach((p, i) => {
+        //     const rp = room.players.find(player => player.name === p.name);
+        //     if (rp) {
+        //         const assigned = tileCounts[i] || 0;
+        //         rp.tokens = assigned;
+        //         rp.initialTiles = assigned; 
+        //     }
+        // });
+
+        if (tileRewards) {
+            console.log('[START GAME] Using tileRewards:', tileRewards);
+            room.players.forEach(player => {
+                const reward = tileRewards[player.name];
+                const tiles = reward ?? 0;
+                console.log(`Assigning ${tiles} tiles to ${player.name}`);
+                player.tokens = tiles;
+                player.initialTiles = tiles;
+            });
+
+            room.players.sort((a, b) => (b.tokens || 0) - (a.tokens || 0));
+
+        } else {
+            console.warn('[START GAME] tileRewards missing or invalid — using fallback');
+            // Fall back to fixed rank-based assignment
+            const ranked = [...room.players].sort((a, b) =>
+                (room.gameState.scores[b.name] || 0) - (room.gameState.scores[a.name] || 0)
+            );
+            const tileCounts = [3, 2, 1, 0];
+
+            ranked.forEach((p, i) => {
+                const rp = room.players.find(player => player.name === p.name);
+                if (rp) {
+                    const assigned = tileCounts[i] || 0;
+                    console.log(`Fallback: Assigning ${assigned} tiles to ${rp.name}`);
+                    rp.tokens = assigned;
+                    rp.initialTiles = assigned;
+                }
+            });
+        }
 
         io.to(roomId).emit('gameStarted', {
             players: room.players,
@@ -559,67 +578,6 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('mg1PlayerEliminated', { username });
     });
 
-    // socket.on('mg1PlayerFinished', ({ roomId, username }) => {
-    //     console.log(`[SERVER] ${username} has finished the race in ${roomId}`);
-    //     if (!mg1Winners.has(roomId)) mg1Winners.set(roomId, []);
-        
-    //     const winners = mg1Winners.get(roomId);
-    //     if (!winners.includes(username)) {
-    //         winners.push(username);
-    //         io.to(roomId).emit('mg1PlayerFinished', { username, place: winners.length });
-    //     }
-    // });
-
-    // socket.on('mg1PlayerFinished', ({ roomId, username }) => {
-    //     const room = activeRooms.get(roomId);
-    //     if (!room) return;
-
-    //     if (!mg1FinishOrders.has(roomId)) {
-    //         mg1FinishOrders.set(roomId, []);
-    //     }
-
-    //     const order = mg1FinishOrders.get(roomId);
-    //     if (order.includes(username)) return;
-
-    //     order.push(username);
-    //     console.log(`[RANKING] ${username} finished in position ${order.length}`);
-
-    //     // First finisher triggers timer
-    //     if (order.length === 1) {
-    //         io.to(roomId).emit('mg1StartTimer', {
-    //             duration: 60,
-    //             startTime: Date.now()
-    //         });
-    //         const timer = setTimeout(() => {
-    //             const tileRewards = {};
-
-    //             order.forEach((player, index) => {
-    //                 tileRewards[player] = 4 - index; // 1st=4, 2nd=3, ...
-    //             });
-
-    //             room.players.forEach(p => {
-    //                 if (!(p.username in tileRewards)) {
-    //                     tileRewards[p.username] = 1; // Everyone gets at least 1
-    //                 }
-    //             });
-
-    //             io.to(roomId).emit('mg1Results', { finishOrder: order, tileRewards });
-    //             console.log(`[RESULTS] Sent for room ${roomId}:`, tileRewards);
-
-    //             // Cleanup
-    //             mg1FinishOrders.delete(roomId);
-    //             clearTimeout(mg1FinishTimers.get(roomId));
-    //             mg1FinishTimers.delete(roomId);
-    //         }, 60_000);
-
-    //         mg1FinishTimers.set(roomId, timer);
-    //     }
-    //     if (order.length === room.players.length) {
-    //         clearTimeout(mg1FinishTimers.get(roomId));
-    //         finishMinigame(roomId, order, room);
-    //     }
-    // });
-
     socket.on('mg1PlayerFinished', ({ roomId, username }) => {
         const room = activeRooms.get(roomId);
         if (!room) return;
@@ -637,13 +595,13 @@ io.on('connection', (socket) => {
         // First finisher triggers timer
         if (order.length === 1) {
             io.to(roomId).emit('mg1StartTimer', {
-                duration: 60,
+                duration: TIME_OUT_DURATION, 
                 startTime: Date.now()
             });
 
             const timer = setTimeout(() => {
                 finishMinigame(roomId, order, room); // ✅ make sure you call this here too
-            }, 60_000);
+            }, TIME_OUT_DURATION * 1000); // Convert seconds to milliseconds
 
             mg1FinishTimers.set(roomId, timer);
         }
@@ -654,6 +612,29 @@ io.on('connection', (socket) => {
             finishMinigame(roomId, order, room); // ✅ early finish path
         }
     });
+
+    socket.on('resultsSeen', ({ roomId, username }) => {
+        if (!resultsSeenMap.has(roomId)) {
+            resultsSeenMap.set(roomId, new Set());
+        }
+        const seenSet = resultsSeenMap.get(roomId);
+        seenSet.add(username);
+
+        const room = activeRooms.get(roomId);
+        const totalPlayers = room?.players.length || 0;
+
+        if (seenSet.size >= totalPlayers) {
+            console.log(`[SYNC] All players saw results for ${roomId}`);
+            resultsSeenMap.delete(roomId);
+
+            const tileRewards = room._tileRewards || {};
+            log(`[SYNC] Broadcasting startGameFromServer for room ${roomId} with tileRewards:`, tileRewards);
+            io.to(roomId).emit('startGameFromServer', { tileRewards });
+
+            delete room._tileRewards; // Clean up after use
+        }
+        });
+
 
 
     socket.on('disconnect', () => {

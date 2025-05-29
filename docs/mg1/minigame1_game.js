@@ -245,6 +245,10 @@ socket.on('mg1StartTimer', ({ duration }) => {
     }, 1000);
 });
 
+socket.on('redirectToResults', () => {
+    console.log("[CLIENT] Received redirectToResults — redirecting to mg-results.html");
+    window.location.href = '../mg-results.html';
+});
 
 
 // --- DRAWING ---
@@ -378,7 +382,7 @@ function gameLoop() {
 let sidebar;
 
 window.onload = () => {
-    sidebar = document.getElementById('playerSidebar'); // ✅ DOM is ready now
+    sidebar = document.getElementById('playerSidebar'); // 
 
     socket.emit('mg1JoinGame', roomId);
     socket.on('mg1Init', ({ obstacles: initialObs, players }) => {

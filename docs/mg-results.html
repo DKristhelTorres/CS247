@@ -1,0 +1,58 @@
+<body>
+  <div id="results-screen">
+    <h1>🏆 Minigame Results</h1>
+    <div id="ranking-list"></div>
+    <button id="continue-btn">Continue</button>
+  </div>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+  const SERVER_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000'
+    : 'https://cs247.onrender.com'; 
+
+
+  const socket = io(SERVER_URL);
+  const username = localStorage.getItem('username');
+  const roomId = localStorage.getItem('roomPassword');
+
+  // 0. Rejoin the room on reconnect
+  socket.on('connect', () => {
+    if (roomId && username) {
+      console.log(`[RESULTS] Rejoining room ${roomId} as ${username}`);
+      socket.emit('joinRoom', { roomId, username });
+    }
+  });
+
+  // 1. Receive results from server
+  socket.on('mg1Results', ({ finishOrder, tileRewards }) => {
+    localStorage.setItem('mg1_tileRewards', JSON.stringify(tileRewards));
+
+    const list = document.getElementById('ranking-list');
+    list.innerHTML = ''; // Clear previous content just in case
+    finishOrder.forEach((name, idx) => {
+      const item = document.createElement('div');
+      item.textContent = `#${idx + 1} — ${name} (+${tileRewards[name]} tiles)`;
+      list.appendChild(item);
+    });
+  });
+
+  // 2. Notify server when user is ready to proceed
+  document.getElementById('continue-btn').onclick = () => {
+    socket.emit('resultsSeen', { roomId, username });
+    console.log(`[RESULTS] ${username} clicked Continue`);
+  };
+
+  // 3. When all users are ready, go to the board
+  socket.on('allResultsSeen', () => {
+    console.log('[RESULTS] All players ready — redirecting to board...');
+    window.location.href = 'game-board.html';
+  });
+
+  socket.on('startGameFromServer', ({ tileRewards }) => {
+    console.log('[CLIENT] Received startGameFromServer', tileRewards);
+    localStorage.setItem('mg1_tileRewards', JSON.stringify(tileRewards));
+    window.location.href = 'game-board.html';
+});
+
+</script>
+</body>
