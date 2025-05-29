@@ -1,201 +1,143 @@
-<body>
-  <div id="results-screen">
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🏆 Minigame Results</title>
+    <style>
+      body {
+        background: #f8f8f8;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin: 0;
+        padding: 40px;
+      }
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 40px;
+      }
+      #ranking-list {
+        margin-bottom: 40px;
+      }
+      .podium-slot {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        width: 180px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        display: inline-block;
+        margin: 0 10px;
+      }
+      .rank-label {
+        font-weight: bold;
+        margin-bottom: 6px;
+      }
+      .player-name {
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+      }
+      .tile-count {
+        color: #555;
+      }
+      #continue-btn {
+        padding: 10px 20px;
+        font-size: 1rem;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        background: #eee;
+        cursor: pointer;
+      }
+      #continue-btn[disabled] {
+        background: #ddd;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
     <h1>🏆 Minigame Results</h1>
     <div id="ranking-list"></div>
     <button id="continue-btn">Continue</button>
-  </div>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script>
-  const SERVER_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000'
-    : 'https://cs247.onrender.com'; 
 
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+      const SERVER_URL =
+        location.hostname === "localhost"
+          ? "http://localhost:3000"
+          : "https://cs247.onrender.com";
+      const socket = io(SERVER_URL);
 
-  const socket = io(SERVER_URL);
-  const username = localStorage.getItem('username');
-  const roomId = localStorage.getItem('roomPassword');
-
-  // 0. Rejoin the room on reconnect
-  socket.on('connect', () => {
-    if (roomId && username) {
-      console.log(`[RESULTS] Rejoining room ${roomId} as ${username}`);
-      socket.emit('joinRoom', { roomId, username });
-    }
-  });
-
-  // 1. Receive results from server
-  socket.on('mg1Results', ({ finishOrder, tileRewards }) => {
-    localStorage.setItem('mg1_tileRewards', JSON.stringify(tileRewards));
-
-    const list = document.getElementById('ranking-list');
-    list.innerHTML = ''; // Clear previous content just in case
-    finishOrder.forEach((name, idx) => {
-      const item = document.createElement('div');
-      item.textContent = `#${idx + 1} — ${name} (+${tileRewards[name]} tiles)`;
-      list.appendChild(item);
-    });
-  });
-
-  // 2. Notify server when user is ready to proceed
-  document.getElementById('continue-btn').onclick = () => {
-    const btn = document.getElementById('continue-btn');
-    btn.disabled = true;
-    btn.textContent = '⏳ Waiting for other players...';
-
-    socket.emit('resultsSeen', { roomId, username });
-    console.log(`[RESULTS] ${username} clicked Continue`);
-  };
-
-  // 3. When all users are ready, go to the board
-  socket.on('allResultsSeen', () => {
-    console.log('[RESULTS] All players ready — redirecting to board...');
-    window.location.href = 'game-board.html';
-  });
-
-  socket.on('startGameFromServer', ({ tileRewards }) => {
-    console.log('[CLIENT] Received startGameFromServer', tileRewards);
-    localStorage.setItem('mg1_tileRewards', JSON.stringify(tileRewards));
-    window.location.href = 'game-board.html';
-});
-
-</script>
-</body>
-
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Minigame Results</title>
-  <style>
-    body {
-      background: #f8f8f8;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 40px;
-    }
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 40px;
-    }
-    #ranking-list {
-      display: flex;
-      justify-content: center;
-      gap: 40px;
-      margin-bottom: 40px;
-    }
-    .podium-slot {
-      background: white;
-      border-radius: 16px;
-      padding: 20px;
-      width: 180px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-    .podium-slot img {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      border: 3px solid #ccc;
-      margin-bottom: 10px;
-    }
-    .rank-label {
-      font-size: 1.1rem;
-      font-weight: bold;
-      margin-bottom: 6px;
-    }
-    .player-name {
-      font-size: 1.2rem;
-      margin-bottom: 4px;
-    }
-    .tile-count {
-      font-size: 1rem;
-      color: #555;
-    }
-    #continue-btn {
-      padding: 10px 20px;
-      font-size: 1rem;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      background: #eee;
-      cursor: pointer;
-    }
-    #continue-btn:hover {
-      background: #ddd;
-    }
-  </style>
-</head>
-<body>
-  <h1>🏆 Minigame Results</h1>
-  <div id="ranking-list"></div>
-  <button id="continue-btn">Continue</button>
-
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script>
-    const SERVER_URL = window.location.hostname === 'localhost'
-      ? 'http://localhost:3000'
-      : 'https://cs247.onrender.com';
-
-    const socket = io(SERVER_URL);
-    const username = localStorage.getItem('username');
-    const roomId = localStorage.getItem('roomPassword');
-
-    socket.on('connect', () => {
-      if (roomId && username) {
-        console.log(`[RESULTS] Rejoining room ${roomId} as ${username}`);
-        socket.emit('joinRoom', { roomId, username });
+      // Get or fall back to a guest name
+      let username = localStorage.getItem("username");
+      if (!username) {
+        // ensure socket.id is available
+        socket.on("connect", () => {
+          username = "Guest_" + socket.id.slice(-4);
+        });
       }
-    });
 
-    socket.on('mg1Results', ({ finishOrder, tileRewards }) => {
-      localStorage.setItem('mg1_tileRewards', JSON.stringify(tileRewards));
-      const container = document.getElementById('ranking-list');
-      container.innerHTML = '';
+      const roomId = localStorage.getItem("roomPassword");
 
-      finishOrder.forEach((name, idx) => {
-        const slot = document.createElement('div');
-        slot.className = 'podium-slot';
-
-        const avatar = document.createElement('img');
-        const playerIdx = idx % 4 + 1;
-        avatar.src = `images/Player${playerIdx}.png`;
-        avatar.alt = name;
-
-        const rank = document.createElement('div');
-        rank.className = 'rank-label';
-        rank.textContent = `#${idx + 1}`;
-
-        const nameDiv = document.createElement('div');
-        nameDiv.className = 'player-name';
-        nameDiv.textContent = name;
-
-        const tiles = document.createElement('div');
-        tiles.className = 'tile-count';
-        tiles.textContent = `+${tileRewards[name]} tiles`;
-
-        slot.appendChild(rank);
-        slot.appendChild(avatar);
-        slot.appendChild(nameDiv);
-        slot.appendChild(tiles);
-        container.appendChild(slot);
+      // 1) Join the *vote* room (no side effects in room.players)
+      socket.on("connect", () => {
+        if (roomId) {
+          console.log(`[RESULTS] Joining vote room ${roomId}`);
+          socket.emit("joinVoteRoom", roomId);
+        }
       });
-    });
 
-    document.getElementById('continue-btn').onclick = () => {
-      socket.emit('resultsSeen', { roomId, username });
-      console.log(`[RESULTS] ${username} clicked Continue`);
-    };
+      // 2) Render results
+      socket.on("mg1Results", ({ finishOrder, tileRewards }) => {
+        localStorage.setItem("mg1_tileRewards", JSON.stringify(tileRewards));
+        const container = document.getElementById("ranking-list");
+        container.innerHTML = "";
 
-    socket.on('allResultsSeen', () => {
-      console.log('[RESULTS] All players ready — redirecting to board...');
-      window.location.href = 'game-board.html';
-    });
+        finishOrder.forEach((name, idx) => {
+          const slot = document.createElement("div");
+          slot.className = "podium-slot";
 
-    socket.on('startGameFromServer', ({ tileRewards }) => {
-      console.log('[CLIENT] Received startGameFromServer', tileRewards);
-      localStorage.setItem('mg1_tileRewards', JSON.stringify(tileRewards));
-      window.location.href = 'game-board.html';
-    });
-  </script>
-</body>
-</html> -->
+          const rank = document.createElement("div");
+          rank.className = "rank-label";
+          rank.textContent = `#${idx + 1}`;
+
+          const avatar = document.createElement("img");
+          avatar.src = `images/Player${(idx % 4) + 1}.png`;
+          avatar.alt = name;
+          avatar.style.width = "80px";
+          avatar.style.height = "80px";
+          avatar.style.borderRadius = "50%";
+          avatar.style.border = "3px solid #ccc";
+          avatar.style.marginBottom = "10px";
+
+          const nameDiv = document.createElement("div");
+          nameDiv.className = "player-name";
+          nameDiv.textContent = name;
+
+          const tiles = document.createElement("div");
+          tiles.className = "tile-count";
+          tiles.textContent = `+${tileRewards[name]} tiles`;
+
+          slot.append(rank, avatar, nameDiv, tiles);
+          container.append(slot);
+        });
+      });
+
+      // 3) Continue button
+      const continueBtn = document.getElementById("continue-btn");
+      continueBtn.addEventListener("click", () => {
+        continueBtn.disabled = true;
+        continueBtn.textContent = "⏳ Waiting for other players...";
+
+        // only send username here
+        socket.emit("resultsSeen", { roomId, username });
+        console.log(`[RESULTS] ${username} clicked Continue`);
+      });
+
+      // 4) When server says all done, go to board
+      socket.on("startGameFromServer", ({ tileRewards }) => {
+        console.log("[RESULTS] startGameFromServer", tileRewards);
+        localStorage.setItem("mg1_tileRewards", JSON.stringify(tileRewards));
+        window.location.href = "game-board.html";
+      });
+    </script>
+  </body>
+</html>
