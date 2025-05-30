@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   // Add debug logging
   const DEBUG = true;
-  const PLAY_CINEMATIC = true; // Toggle false to skip cinematic for debugging
+  const PLAY_CINEMATIC = false; // Toggle false to skip cinematic for debugging
 
   function debugLog(...args) {
     if (DEBUG) {

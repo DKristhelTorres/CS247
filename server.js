@@ -263,13 +263,13 @@ function finishMinigame(roomId, order, room) {
 
   room._tileRewards = tileRewards;
 
-  io.to(roomId).emit("mg1Results", { finishOrder: order, tileRewards });
-  console.log(`[RESULTS] Sent for room ${roomId}:`, tileRewards);
+console.log(`[SERVER] Emitting redirectToResults to room ${roomId}`);
+io.to(roomId).emit("redirectToResults");
 
   setTimeout(() => {
-    console.log(`[SERVER] Emitting redirectToResults to room ${roomId}`);
-    io.to(roomId).emit("redirectToResults");
-  }, 3000); // 3 seconds before redirecting
+      io.to(roomId).emit("mg1Results", { finishOrder: order, tileRewards });
+      console.log(`[RESULTS] Sent for room ${roomId}:`, tileRewards);
+  }, 1500); // 3 seconds before redirecting
 
   // Cleanup
   mg1FinishOrders.delete(roomId);
