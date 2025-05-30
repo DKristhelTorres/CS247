@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <audio id="pigeonNightmare" src="sounds/board_theme_song.mp3" loop></audio>
+    <audio id="bombTrigSound" src="../sounds/bomb_trig.mp3" preload="auto"></audio>
     <title>Play&Boom - Game Board</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -332,6 +334,13 @@
         setTimeout(() => {
             alert(`💥 BOOM! ${playerName} is dead!`);
         }, 100); // delay to ensure render completes first
+
+        // const bombSound = document.getElementById('bombTrigSound');
+        // if (bombSound) {
+        //     bombSound.volume = 0.2;
+        //     bombSound.currentTime = 0;
+        //     bombSound.play();
+        // }
     });
 
 
@@ -692,6 +701,13 @@
     //   renderPlayerCardsVertical();
     //   renderBoard();
       renderTokenTray();
+    
+      window.addEventListener('click', () => {
+        const music = document.getElementById('pigeonNightmare');
+        if (music && music.paused) {
+            music.play().catch(err => console.warn("Autoplay blocked:", err));
+        }
+        }, { once: true });
     </script>
 </body>
 </html> 

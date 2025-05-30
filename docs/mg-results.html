@@ -84,6 +84,7 @@
   </style>
 </head>
 <body>
+  <audio id="podiumSound" src="sounds/bg_podium.mp3"></audio>
   <h1>🏆 Minigame Results</h1>
   <div id="podium">Waiting for results...</div>
   <button id="continue-btn">Continue</button>
@@ -215,6 +216,13 @@
       localStorage.setItem("mg1_tileRewards", JSON.stringify(tileRewards));
       window.location.href = "game-board.html";
     });
+
+  window.addEventListener('click', () => {
+    const music = document.getElementById('podiumSound');
+    if (music && music.paused) {
+        music.play().catch(err => console.warn("Autoplay blocked:", err));
+    }
+    }, { once: true });
   </script>
 </body>
 </html>

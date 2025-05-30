@@ -88,6 +88,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <audio id="pigeonNightmare" src="sounds/board_theme_song.mp3" loop></audio>
     <title>Play&Boom – Intro</title>
     <style>
       body {
@@ -224,6 +225,12 @@
 
       // kick off first line
       advanceLine();
+      window.addEventListener('click', () => {
+        const music = document.getElementById('pigeonNightmare');
+        if (music && music.paused) {
+            music.play().catch(err => console.warn("Autoplay blocked:", err));
+        }
+        }, { once: true });
     </script>
   </body>
 </html>

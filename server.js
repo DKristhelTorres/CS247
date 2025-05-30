@@ -536,6 +536,12 @@ io.on("connection", (socket) => {
           playerName: "Unknown (unassigned corner)",
         });
       }
+      const bombSound = document.getElementById('bombTrigSound');
+        if (bombSound) {
+            bombSound.volume = 0.2;
+            bombSound.currentTime = 0;
+            bombSound.play();
+        }
     }
 
     const player = room.players[playerIdx];

@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="minigame1_style.css">
 </head>
 <body>
+    <audio id="mg_bg_sound" src="../sounds/city_bg_3.mp3" loop></audio>
+    <audio id="pigeonHitSound" src="../sounds/hit_sound.mp3" preload="auto"></audio>
+    <audio id="pigeonCrossedSound" src="../sounds/pigeon_crossed.mp3" preload="auto"></audio>
     <div class="game-container">
         <div id="playerSidebar"></div> 
         <div class="game-area">
@@ -18,4 +21,15 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="minigame1_game.js"></script>
 </body>
+<script>
+  window.addEventListener('keydown', () => {
+    const music = document.getElementById('mg_bg_sound'); // or 'music-pigeon'
+    if (music) {
+      music.volume = 0.4; // Set volume
+      if (music.paused) {
+        music.play().catch(err => console.warn("Autoplay blocked:", err));
+      }
+    }
+  }, { once: true });
+</script>
 </html>

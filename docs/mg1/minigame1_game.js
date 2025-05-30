@@ -323,6 +323,11 @@ function update() {
   for (let obs of obstacles) {
     if (checkCollision(p, obs)) {
       socket.emit("mg1PlayerHit", { roomId, username: myUsername });
+      const hitSound = document.getElementById('pigeonHitSound');
+            if (hitSound) {
+                hitSound.currentTime = 0;
+                hitSound.play();
+            }
       break;
     }
   }
@@ -335,6 +340,11 @@ function update() {
       username: myUsername,
       finishedAt: Date.now(),
     });
+    const crossedSound = document.getElementById('pigeonCrossedSound');
+        if (crossedSound) {
+            crossedSound.currentTime = 0;
+            crossedSound.play();
+        }
   }
 }
 
