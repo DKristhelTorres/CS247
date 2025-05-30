@@ -8,6 +8,8 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
+    <audio id="bg-music" src="sounds/theme_song_jazz.mp3" autoplay loop></audio>
+    <audio id="bg-music" src="sounds/pigeon_theme.mp3" autoplay loop></audio>
     <h1 class="game-title main-title">Play&Boom</h1>
     <div class="main-description">
         Four players, head-strapped with bombs, race through lightning-fast micro-games—wiring puzzles, memory tests and logic riddles—to earn circuit tokens. Spend your tokens to twist and swap tiles on the electrified grid, steering the deadly current toward your rivals. Last survivor wins.
@@ -69,4 +71,12 @@
     </div>
     <script src="script.js"></script>
 </body>
+<script>
+  window.addEventListener('click', () => {
+    const music = document.getElementById('bg-music');
+    if (music && music.paused) {
+      music.play().catch(err => console.warn("Autoplay blocked:", err));
+    }
+  }, { once: true });
+</script>
 </html> 
