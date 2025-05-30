@@ -358,4 +358,19 @@ h2 {
     margin-top: -20vh !important;
 }
 
+.podium-slot {
+  text-align: center;
+  position: relative;
+  width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.podium-base {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
 

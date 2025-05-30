@@ -110,7 +110,6 @@
     });
     console.log("Waiting for mg1Results...");
 
-
     // Render podium when results arrive
     socket.on("mg1Results", ({ finishOrder, tileRewards }) => {
       console.log("[CLIENT] mg1Results received!", finishOrder, tileRewards);
@@ -118,37 +117,89 @@
       const podium = document.getElementById("podium");
       podium.innerHTML = "";
 
+      const medals = ["🥇", "🥈", "🥉"];
+
       finishOrder.forEach((name, idx) => {
         const playerIdx = (idx % 4) + 1;
 
         const slot = document.createElement("div");
-        slot.className = `podium-slot podium-rank-${idx + 1}`;
+        slot.className = "podium-slot";
+        if (idx < 3) {
+          slot.classList.add(`podium-rank-${idx + 1}`);
+        }
 
+        // Add medal for top 3
+        if (idx < 3) {
+          const medal = document.createElement("div");
+          medal.textContent = medals[idx];
+          medal.style.fontSize = "1.6rem";
+          medal.style.marginBottom = "6px";
+          slot.appendChild(medal);
+        }
+
+        // Sprite image
         const sprite = document.createElement("img");
-        console.log("Loading sprite from:", sprite.src);
         sprite.src = `images/Player${playerIdx}.png`;
         sprite.alt = name;
         sprite.className = "player-sprite";
+        slot.appendChild(sprite);
 
-        const base = document.createElement("div");
-        base.className = "podium-base";
+        // Podium base for top 3 only
+        if (idx < 3) {
+          const base = document.createElement("div");
+          base.className = "podium-base";
+          base.textContent = `#${idx + 1}`; // Show the number
+          base.style.fontWeight = "bold";
+          base.style.color = "black";
+          slot.appendChild(base);
+        }
 
         const label = document.createElement("div");
         label.className = "player-name";
         label.textContent = name;
+        slot.appendChild(label);
 
         const reward = document.createElement("div");
         reward.className = "tile-reward";
         reward.textContent = `+${tileRewards[name]} tiles`;
-
-        slot.appendChild(sprite);
-        slot.appendChild(base);
-        slot.appendChild(label);
         slot.appendChild(reward);
 
         podium.appendChild(slot);
       });
     });
+
+
+    //   finishOrder.forEach((name, idx) => {
+    //     const playerIdx = (idx % 4) + 1;
+
+    //     const slot = document.createElement("div");
+    //     slot.className = `podium-slot podium-rank-${idx + 1}`;
+
+    //     const sprite = document.createElement("img");
+    //     console.log("Loading sprite from:", sprite.src);
+    //     sprite.src = `images/Player${playerIdx}.png`;
+    //     sprite.alt = name;
+    //     sprite.className = "player-sprite";
+
+    //     const base = document.createElement("div");
+    //     base.className = "podium-base";
+
+    //     const label = document.createElement("div");
+    //     label.className = "player-name";
+    //     label.textContent = name;
+
+    //     const reward = document.createElement("div");
+    //     reward.className = "tile-reward";
+    //     reward.textContent = `+${tileRewards[name]} tiles`;
+
+    //     slot.appendChild(sprite);
+    //     slot.appendChild(base);
+    //     slot.appendChild(label);
+    //     slot.appendChild(reward);
+
+    //     podium.appendChild(slot);
+    //   });
+    // });
 
     // Continue button
     const continueBtn = document.getElementById("continue-btn");
