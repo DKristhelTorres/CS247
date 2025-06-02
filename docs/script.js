@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   // Add debug logging
   const DEBUG = true;
-  const PLAY_CINEMATIC = false; // Toggle false to skip cinematic for debugging
+  const PLAY_CINEMATIC = true; // Toggle false to skip cinematic for debugging
 
   function debugLog(...args) {
     if (DEBUG) {
@@ -331,7 +331,9 @@ document.addEventListener("DOMContentLoaded", () => {
       showJoinError(message);
     });
     socket.on("transitionToTutorial", ({ minigame }) => {
-      console.log(`[CLIENT] Transitioning to tutorial for minigame: ${minigame}`);
+      console.log(
+        `[CLIENT] Transitioning to tutorial for minigame: ${minigame}`
+      );
       window.location.href = "tutorial.html";
     });
     socket.on("transitionToMinigame", ({ minigame }) => {

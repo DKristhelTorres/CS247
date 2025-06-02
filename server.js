@@ -202,7 +202,129 @@ function isPathToCorner(board) {
   return null; // No path to any corner found
 }
 
+/**
+ * Starting from the center (3,3), flood‐fill outwards. Then return
+ * an array of all corner‐coordinates [ [y,x], … ] that turned out to be reachable.
+ * (We will map [0,0] -> cornerIndex 0, [0,6] -> 1, [6,6] -> 2, [6,0] -> 3.)
+ */
+function getAllConnectedCorners(board) {
+  const N = board.length; // should be 7
+  const visited = Array.from({ length: N }, () => Array(N).fill(false));
+  const queue = [[3, 3]]; // start from center
+
+  const directions = {
+    up: [-1, 0],
+    down: [1, 0],
+    left: [0, -1],
+    right: [0, 1],
+  };
+  const opposite = {
+    up: "down",
+    down: "up",
+    left: "right",
+    right: "left",
+  };
+
+  while (queue.length) {
+    const [y, x] = queue.shift();
+    if (visited[y][x]) continue;
+    visited[y][x] = true;
+
+    const symbol = board[y][x];
+    if (!symbol) continue;
+
+    // get outgoing directions from this cell
+    let myConns;
+    switch (symbol) {
+      case "─":
+        myConns = ["left", "right"];
+        break;
+      case "│":
+        myConns = ["up", "down"];
+        break;
+      case "┌":
+        myConns = ["right", "down"];
+        break;
+      case "┐":
+        myConns = ["left", "down"];
+        break;
+      case "┘":
+        myConns = ["left", "up"];
+        break;
+      case "└":
+        myConns = ["right", "up"];
+        break;
+      case "┼":
+        myConns = ["up", "down", "left", "right"];
+        break;
+      default:
+        myConns = [];
+        break;
+    }
+
+    for (const dir of myConns) {
+      const [dy, dx] = directions[dir];
+      const ny = y + dy,
+        nx = x + dx;
+      if (ny < 0 || ny >= N || nx < 0 || nx >= N) continue;
+      if (visited[ny][nx]) continue;
+
+      const neighbor = board[ny][nx];
+      if (!neighbor) continue;
+      // does neighbor connect back?
+      let neighborConns;
+      switch (neighbor) {
+        case "─":
+          neighborConns = ["left", "right"];
+          break;
+        case "│":
+          neighborConns = ["up", "down"];
+          break;
+        case "┌":
+          neighborConns = ["right", "down"];
+          break;
+        case "┐":
+          neighborConns = ["left", "down"];
+          break;
+        case "┘":
+          neighborConns = ["left", "up"];
+          break;
+        case "└":
+          neighborConns = ["right", "up"];
+          break;
+        case "┼":
+          neighborConns = ["up", "down", "left", "right"];
+          break;
+        default:
+          neighborConns = [];
+          break;
+      }
+      if (neighborConns.includes(opposite[dir])) {
+        queue.push([ny, nx]);
+      }
+    }
+  }
+
+  // Now check each of the four corners; if visited[cY][cX] is true, it’s connected.
+  const result = [];
+  const corners = [
+    [0, 0], // cornerIndex 0 → player 0
+    [0, N - 1], // cornerIndex 1 → player 1
+    [N - 1, N - 1], // cornerIndex 2 → player 2
+    [N - 1, 0], // cornerIndex 3 → player 3
+  ];
+
+  corners.forEach(([cy, cx], idx) => {
+    if (visited[cy][cx]) {
+      result.push(idx);
+    }
+  });
+
+  return result; // array of corner‐indices currently “reachable”
+}
+
 const activeRooms = new Map();
+const alreadyEliminatedCorners = new Map();
 const socketToRoomMap = new Map(); // Track which room each socket belongs to
 
 // --- MINIGAME1 OBSTACLE SYNC SETUP ---
@@ -220,17 +342,27 @@ function generateObstacleSet() {
   const lanes = 4;
   const result = [];
   const POLICE_SPEED = 12; // Fastest
-  const RED_SPEED = 8;     // Medium
-  const BROWN_SPEED = 5;   // Slowest
-  
+  const RED_SPEED = 8; // Medium
+  const BROWN_SPEED = 5; // Slowest
+
   for (let i = 0; i < lanes; i++) {
     const direction = i % 2 === 0 ? "down" : "up";
     for (let j = 0; j < OBSTACLES_PER_LANE; j++) {
       // Randomly assign car colors: 1/3 chance for each type
-      const color = Math.random() < 0.33 ? "yellow" : Math.random() < 0.5 ? "#ff5252" : "brown";
+      const color =
+        Math.random() < 0.33
+          ? "yellow"
+          : Math.random() < 0.5
+          ? "#ff5252"
+          : "brown";
       // Assign speed based on color
-      const speed = color === "yellow" ? POLICE_SPEED : color === "#ff5252" ? RED_SPEED : BROWN_SPEED;
-      
+      const speed =
+        color === "yellow"
+          ? POLICE_SPEED
+          : color === "#ff5252"
+          ? RED_SPEED
+          : BROWN_SPEED;
+
       const x = OBSTACLE_POSITIONS[i] - OBSTACLE_WIDTH / 2 + j * SIDE_OFFSET;
       const y =
         direction === "down"
@@ -487,6 +619,8 @@ io.on("connection", (socket) => {
       });
     }
 
+    alreadyEliminatedCorners.set(roomId, new Set());
+
     io.to(roomId).emit("gameStarted", {
       players: room.players,
       gameState: room.gameState,
@@ -499,138 +633,108 @@ io.on("connection", (socket) => {
   });
 
   socket.on("placeToken", ({ roomId, x, y, tokenType, playerIdx }) => {
-    console.log(`[SERVER] Received placeToken: room=${roomId}, (${x}, ${y}) => ${tokenType}, from player ${playerIdx}`);
-
     const room = activeRooms.get(roomId);
-    if (!room) {
-      console.warn(`[SERVER] No room found for ${roomId}`);
-      return;
+    if (!room) return;
+
+    // Ensure we have an “already eliminated” set for this room
+    if (!alreadyEliminatedCorners.has(roomId)) {
+      alreadyEliminatedCorners.set(roomId, new Set());
     }
+    const eliminatedSet = alreadyEliminatedCorners.get(roomId);
 
-    console.log(`[SERVER] Emitting gameUpdate for ${roomId}`);
-    console.log("Board state:", room.board);
-
-    io.in(roomId)
-      .allSockets()
-      .then((sockets) => {
-        console.log(`[CHECK] All sockets in room ${roomId}:`, [...sockets]);
-      });
-
-    // Ensure the board is initialized
-    if (!room.board) {
-      room.board = Array.from({ length: 7 }, () => Array(7).fill(null));
-    }
-    room.board[3][3] = room.board[3][3] || "┼"; // Always ensure center is set
+    // 1) Write the new tile onto room.board, unless it’s center/corner:
     const isCenter = x === 3 && y === 3;
-    const isCorner =
+    const isTrueCorner =
       (x === 0 && y === 0) ||
       (x === 0 && y === 6) ||
       (x === 6 && y === 0) ||
       (x === 6 && y === 6);
-
-    // Place the token
-    if (isCenter || isCorner) {
-      console.log(`[SERVER] Tile at (${x}, ${y}) is protected. Ignoring move.`);
+    if (isCenter || isTrueCorner) {
+      // Protected tile—ignore
       return;
     }
     room.board[y][x] = tokenType;
+    room.board[3][3] = room.board[3][3] || "┼"; // always keep center seeded
 
-    // Ensure center is seeded
-    room.board[3][3] = room.board[3][3] || "┼";
+    // 2) Find all corners that are currently connected:
+    const connectedCorners = getAllConnectedCorners(room.board);
+    // connectedCorners is an array of cornerIndices, e.g. [0, 2] if corner‐0 and corner‐2 are reachable.
 
-    const cornerReached = isPathToCorner(room.board);
-    if (cornerReached) {
-      console.log("💥 BOOM detected at corner:", cornerReached);
-
-      const [cy, cx] = cornerReached;
-      const cornerKey = `${cy},${cx}`;
-      const cornerPositions = ["0,0", "0,6", "6,6", "6,0"];
-
-      const index = cornerPositions.indexOf(cornerKey);
-      if (index !== -1 && room.players[index]) {
-        const victim = room.players[index];
-        victim.alive = false; // Mark as eliminated
-        io.to(roomId).emit("boomTriggered", {
-          playerName: victim.name,
-        });
-        // --- FIX: If the eliminated player is the current turn, advance turn ---
-        if (room.gameState.currentTurn === index || !room.players[room.gameState.currentTurn].alive) {
+    // 3) For each cornerIndex in connectedCorners that is *not* in eliminatedSet, we must now eliminate that player:
+    for (const cornerIndex of connectedCorners) {
+      if (!eliminatedSet.has(cornerIndex)) {
+        eliminatedSet.add(cornerIndex);
+        // Mark that player dead in room.players[cornerIndex]:
+        if (room.players[cornerIndex]) {
+          room.players[cornerIndex].alive = false;
+          io.to(roomId).emit("boomTriggered", {
+            playerName: room.players[cornerIndex].name,
+          });
+          console.log(
+            `[SERVER] Eliminated ${room.players[cornerIndex].name} at corner ${cornerIndex}`
+          );
+        }
+        // If the eliminated cornerIndex was the “currentTurn”, or if that turn-holder is dead, skip them:
+        if (
+          room.gameState.currentTurn === cornerIndex ||
+          !room.players[room.gameState.currentTurn]?.alive
+        ) {
           const total = room.players.length;
           for (let i = 1; i <= total; i++) {
-            const nextIdx = (room.gameState.currentTurn + i) % total;
-            const nextPlayer = room.players[nextIdx];
-            if (nextPlayer && nextPlayer.alive && nextPlayer.tokens > 0) {
-              room.gameState.currentTurn = nextIdx;
+            const nxt = (room.gameState.currentTurn + i) % total;
+            const candidate = room.players[nxt];
+            if (candidate && candidate.alive && candidate.tokens > 0) {
+              room.gameState.currentTurn = nxt;
               break;
             }
           }
         }
-      } else {
-        console.warn("Corner reached but player not found:", cornerKey);
-        io.to(roomId).emit("boomTriggered", {
-          playerName: "Unknown (unassigned corner)",
-        });
+        // Note: _do not_ break here; maybe multiple new corners appear at once.
+        // We loop through all newly connected corners.
       }
     }
 
-    const player = room.players[playerIdx];
-    if (player) {
-      player.tokens = Math.max((player.tokens || 0) - 1, 0);
+    // 4) Deduct one token from whoever just placed:
+    const actor = room.players[playerIdx];
+    if (actor) {
+      actor.tokens = Math.max((actor.tokens || 0) - 1, 0);
     }
 
-    // Always attempt to advance turn (after every valid move)
-    const total = room.players.length;
-    if (player.tokens === 0) {
+    // 5) If that actor now has 0 tokens or is dead, advance currentTurn to next valid:
+    let pointer = room.gameState.currentTurn;
+    if (!room.players[pointer]?.alive || room.players[pointer]?.tokens === 0) {
+      const total = room.players.length;
       for (let i = 1; i <= total; i++) {
-        const nextIdx = (room.gameState.currentTurn + i) % total;
-        const nextPlayer = room.players[nextIdx];
-        if (nextPlayer && nextPlayer.alive && nextPlayer.tokens > 0) {
-          room.gameState.currentTurn = nextIdx;
+        const nxt = (pointer + i) % total;
+        const candidate = room.players[nxt];
+        if (candidate && candidate.alive && candidate.tokens > 0) {
+          room.gameState.currentTurn = nxt;
           break;
         }
       }
     }
-
-    // Broadcast update
-    console.log(`[SERVER] Broadcasting gameUpdate to room ${roomId}`);
-    io.in(roomId)
-      .allSockets()
-      .then((sockets) => {
-        console.log(`Sockets in ${roomId}:`, [...sockets]);
-      });
-
-    console.log(`[SERVER] About to emit gameUpdate to room ${roomId}`);
-    console.log("Board state now:", JSON.stringify(room.board));
-    console.log("Players now:", JSON.stringify(room.players));
 
     io.to(roomId).emit("gameUpdate", {
       board: room.board,
       players: room.players,
       currentTurn: room.gameState.currentTurn,
     });
-    console.log(`[SERVER] Emitted gameUpdate to room ${roomId}`);
 
-    io.in(roomId)
-      .allSockets()
-      .then((sockets) => {
-        console.log(`[DEBUG] Emitted gameUpdate to room ${roomId} with sockets:`, [...sockets]);
-      });
-
-    console.log(`[DEBUG] gameUpdate sent – currentTurn: ${room.gameState.currentTurn}`);
-
-    // --- WIN CONDITION: If only one alive player remains, end the game ---
-    const alivePlayers = room.players.filter(p => p.alive);
+    // 7a) If only one player is still alive, declare game over:
+    const alivePlayers = room.players.filter((p) => p.alive);
     if (alivePlayers.length === 1) {
-      const winner = alivePlayers[0];
-      io.to(roomId).emit("gameOver", { winner: winner.name, avatar: winner.avatar });
-      return; // Stop further processing
+      const solo = alivePlayers[0];
+      console.log(`[SERVER] Game over in room ${roomId}, winner=${solo.name}`);
+      io.to(roomId).emit("gameOver", {
+        winner: solo.name,
+        avatar: solo.avatar,
+      });
+      return; // Do not continue to boardRoundEnd or next minigame
     }
 
-    // Check for end-of-round conditions
-    const allPlayersHaveZeroTokens = room.players.every(p => p.tokens === 0);
-    const noPlayerDied = !cornerReached;
-
-    if ((noPlayerDied && allPlayersHaveZeroTokens) || (cornerReached && allPlayersHaveZeroTokens)) {
+    // 7b) Otherwise, if nobody (alive) has any tokens left, end this board round:
+    const someoneCanMove = room.players.some((p) => p.alive && p.tokens > 0);
+    if (!someoneCanMove) {
       console.log(`[SERVER] Board round ended for room ${roomId}`);
       io.to(roomId).emit("boardRoundEnd", {
         board: room.board,
@@ -749,15 +853,17 @@ io.on("connection", (socket) => {
     const set = readyForResultsMap.get(roomId);
     set.add(username);
     const room = activeRooms.get(roomId);
-    const alivePlayers = room?.players.filter(p => p.alive) || [];
-    
+    const alivePlayers = room?.players.filter((p) => p.alive) || [];
+
     if (set.size === alivePlayers.length) {
       // All alive players have seen results, transition to board
-      console.log(`[SERVER] All players have seen results, transitioning to board for room ${roomId}`);
+      console.log(
+        `[SERVER] All players have seen results, transitioning to board for room ${roomId}`
+      );
 
       // --- FIX: Update player tokens for new board round ---
       if (room && room._tileRewards) {
-        room.players.forEach(player => {
+        room.players.forEach((player) => {
           const reward = room._tileRewards[player.name];
           player.tokens = reward ?? 0;
           player.initialTiles = reward ?? 0;
@@ -774,7 +880,7 @@ io.on("connection", (socket) => {
     const room = activeRooms.get(roomId);
     if (!room) return;
     // Check if only one player is alive
-    const alivePlayers = room.players.filter(p => p.alive);
+    const alivePlayers = room.players.filter((p) => p.alive);
     if (alivePlayers.length === 1) {
       io.to(roomId).emit("gameOver", { winner: alivePlayers[0].name });
       return;
@@ -799,20 +905,24 @@ io.on("connection", (socket) => {
       const room = activeRooms.get(roomId);
       if (room) {
         // Find the username for this socket
-        const player = room.players.find(p => p.socketId === socket.id);
+        const player = room.players.find((p) => p.socketId === socket.id);
         if (player && player.alive) {
           // If no one has finished yet, just mark as eliminated
           const order = mg1FinishOrders.get(roomId);
           if (order.length === 0) {
             player.alive = false;
-            console.log(`[DISCONNECT] Marked ${player.name} as eliminated (disconnect before finish)`);
+            console.log(
+              `[DISCONNECT] Marked ${player.name} as eliminated (disconnect before finish)`
+            );
           } else {
             // If at least one has finished, mark as finished in last place
             if (!order.includes(player.name)) {
               order.push(player.name);
-              console.log(`[DISCONNECT] Marked ${player.name} as finished (disconnect)`);
+              console.log(
+                `[DISCONNECT] Marked ${player.name} as finished (disconnect)`
+              );
               // If all players finished, end minigame
-              if (order.length === room.players.filter(p => p.alive).length) {
+              if (order.length === room.players.filter((p) => p.alive).length) {
                 clearTimeout(mg1FinishTimers.get(roomId));
                 finishMinigame(roomId, order, room);
               }
