@@ -26,6 +26,9 @@ const pigeons = [];
 let keys = {};
 let myPlayerIndex = null;
 let initialized = false;
+let gameEnded = false;
+
+const PLAYER_SPEED = 2; // Standardized speed for all players
 
 document.addEventListener("keydown", (e) => (keys[e.key] = true));
 document.addEventListener("keyup", (e) => (keys[e.key] = false));
@@ -155,14 +158,26 @@ socket.on("mg1PlayerEliminated", ({ username }) => {
   }
 });
 
+socket.on("mg1PlayerFinished", ({ roomId, username }) => {
+  const p = pigeons.find((p) => p.name === username);
+  if (p) {
+    p.hasFinished = true;
+    p.finishTime = Date.now();
+  }
+});
+
 socket.on("mg1Results", ({ finishOrder, tileRewards }) => {
-  alert(
-    `🏁 Final Results:\n` +
-      finishOrder
-        .map((name, i) => `${i + 1}. ${name} (+${tileRewards[name]} tiles)`)
-        .join("\n")
-  );
-  localStorage.setItem("mg1_tileRewards", JSON.stringify(tileRewards));
+  if (gameEnded) return; // Prevent multiple transitions
+  gameEnded = true;
+
+  // Store ONLY the server's results
+  localStorage.setItem("mg1Results", JSON.stringify({ 
+    finishOrder,
+    tileRewards 
+  }));
+  
+  // Navigate to results page
+  window.location.href = "../mg-results.html";
 });
 
 socket.on("mg1StartTimer", ({ duration }) => {
@@ -197,6 +212,10 @@ socket.on("mg1StartTimer", ({ duration }) => {
 
 socket.on("redirectToResults", () => {
   window.location.href = "../mg-results.html";
+});
+
+socket.on("transitionToMainBoard", () => {
+  window.location.href = "../game-board.html";
 });
 
 // --- DRAWING ---
@@ -282,42 +301,56 @@ function draw() {
 }
 
 // --- UPDATE & EMIT ---
+let lastMoveEmit = 0;
+const MOVE_EMIT_INTERVAL = 33; // ms, ~30fps
+let lastUpdate = Date.now();
+const SPEED_PER_SEC = 120; // pixels per second
 function update() {
   if (myPlayerIndex === null) return;
   const p = pigeons[myPlayerIndex];
   if (!p) return;
 
-  p.moving = false;
+  const now = Date.now();
+  const delta = Math.min((now - lastUpdate) / 1000, 0.05); // seconds, cap at 50ms
+  lastUpdate = now;
+
+  let moved = false;
   if (keys["ArrowRight"]) {
-    p.x += 2;
+    p.x += SPEED_PER_SEC * delta;
     p.direction = "right";
-    p.moving = true;
+    moved = true;
   }
   if (keys["ArrowLeft"]) {
-    p.x -= 2;
+    p.x -= SPEED_PER_SEC * delta;
     p.direction = "left";
-    p.moving = true;
+    moved = true;
   }
   if (keys["ArrowUp"]) {
-    p.y -= 2;
-    p.moving = true;
+    p.y -= SPEED_PER_SEC * delta;
+    moved = true;
   }
   if (keys["ArrowDown"]) {
-    p.y += 2;
-    p.moving = true;
+    p.y += SPEED_PER_SEC * delta;
+    moved = true;
   }
+  p.moving = moved;
 
   p.x = Math.max(0, Math.min(CANVAS_WIDTH - p.width, p.x));
   p.y = Math.max(0, Math.min(CANVAS_HEIGHT - p.height, p.y));
 
-  socket.emit("mg1PlayerMove", {
-    roomId,
-    username: myUsername,
-    x: p.x,
-    y: p.y,
-    direction: p.direction,
-    moving: p.moving,
-  });
+  // Throttle movement emits to 30fps
+  const nowEmit = Date.now();
+  if (nowEmit - lastMoveEmit > MOVE_EMIT_INTERVAL) {
+    socket.emit("mg1PlayerMove", {
+      roomId,
+      username: myUsername,
+      x: p.x,
+      y: p.y,
+      direction: p.direction,
+      moving: p.moving,
+    });
+    lastMoveEmit = nowEmit;
+  }
 
   // collisions
   for (let obs of obstacles) {
@@ -364,11 +397,23 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
+function tryJoinMinigame() {
+  const myName = localStorage.getItem('username');
+  const players = JSON.parse(localStorage.getItem('lastPlayersState') || '[]');
+  const me = players.find(p => p.name === myName);
+  if (me && !me.alive) {
+    alert("You are eliminated and cannot join the minigame.");
+    return;
+  }
+  // Proceed to join minigame
+  socket.emit('mg1JoinGame', roomId);
+}
+
 window.onload = () => {
   sidebar = document.getElementById("playerSidebar");
 
   // Re-enable join & init
-  socket.emit("mg1JoinGame", roomId);
+  tryJoinMinigame();
   socket.on("mg1Init", ({ obstacles: initialObs, players }) => {
     // load obstacles
     obstacles = initialObs;
