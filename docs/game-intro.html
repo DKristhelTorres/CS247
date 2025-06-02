@@ -225,12 +225,16 @@
 
       // kick off first line
       advanceLine();
-      window.addEventListener('click', () => {
-        const music = document.getElementById('pigeonNightmare');
-        if (music && music.paused) {
-            music.play().catch(err => console.warn("Autoplay blocked:", err));
-        }
-        }, { once: true });
+      window.addEventListener(
+        "click",
+        () => {
+          const music = document.getElementById("pigeonNightmare");
+          if (music && music.paused) {
+            music.play().catch((err) => console.warn("Autoplay blocked:", err));
+          }
+        },
+        { once: true }
+      );
     </script>
   </body>
 </html>

@@ -171,11 +171,14 @@ socket.on("mg1Results", ({ finishOrder, tileRewards }) => {
   gameEnded = true;
 
   // Store ONLY the server's results
-  localStorage.setItem("mg1Results", JSON.stringify({ 
-    finishOrder,
-    tileRewards 
-  }));
-  
+  localStorage.setItem(
+    "mg1Results",
+    JSON.stringify({
+      finishOrder,
+      tileRewards,
+    })
+  );
+
   // Navigate to results page
   window.location.href = "../mg-results.html";
 });
@@ -315,21 +318,21 @@ function update() {
   lastUpdate = now;
 
   let moved = false;
-  if (keys["ArrowRight"]) {
+  if (keys["ArrowRight"] || keys["d"]) {
     p.x += SPEED_PER_SEC * delta;
     p.direction = "right";
     moved = true;
   }
-  if (keys["ArrowLeft"]) {
+  if (keys["ArrowLeft"] || keys["a"]) {
     p.x -= SPEED_PER_SEC * delta;
     p.direction = "left";
     moved = true;
   }
-  if (keys["ArrowUp"]) {
+  if (keys["ArrowUp"] || keys["w"]) {
     p.y -= SPEED_PER_SEC * delta;
     moved = true;
   }
-  if (keys["ArrowDown"]) {
+  if (keys["ArrowDown"] || keys["s"]) {
     p.y += SPEED_PER_SEC * delta;
     moved = true;
   }
@@ -356,11 +359,11 @@ function update() {
   for (let obs of obstacles) {
     if (checkCollision(p, obs)) {
       socket.emit("mg1PlayerHit", { roomId, username: myUsername });
-      const hitSound = document.getElementById('pigeonHitSound');
-            if (hitSound) {
-                hitSound.currentTime = 0;
-                hitSound.play();
-            }
+      const hitSound = document.getElementById("pigeonHitSound");
+      if (hitSound) {
+        hitSound.currentTime = 0;
+        hitSound.play();
+      }
       break;
     }
   }
@@ -373,11 +376,11 @@ function update() {
       username: myUsername,
       finishedAt: Date.now(),
     });
-    const crossedSound = document.getElementById('pigeonCrossedSound');
-        if (crossedSound) {
-            crossedSound.currentTime = 0;
-            crossedSound.play();
-        }
+    const crossedSound = document.getElementById("pigeonCrossedSound");
+    if (crossedSound) {
+      crossedSound.currentTime = 0;
+      crossedSound.play();
+    }
   }
 }
 
@@ -398,15 +401,15 @@ function gameLoop() {
 }
 
 function tryJoinMinigame() {
-  const myName = localStorage.getItem('username');
-  const players = JSON.parse(localStorage.getItem('lastPlayersState') || '[]');
-  const me = players.find(p => p.name === myName);
+  const myName = localStorage.getItem("username");
+  const players = JSON.parse(localStorage.getItem("lastPlayersState") || "[]");
+  const me = players.find((p) => p.name === myName);
   if (me && !me.alive) {
     alert("You are eliminated and cannot join the minigame.");
     return;
   }
   // Proceed to join minigame
-  socket.emit('mg1JoinGame', roomId);
+  socket.emit("mg1JoinGame", roomId);
 }
 
 window.onload = () => {
