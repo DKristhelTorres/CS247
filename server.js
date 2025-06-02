@@ -219,12 +219,18 @@ const OBSTACLE_POSITIONS = [0.2, 0.4, 0.6, 0.8].map((p) => 700 * p);
 function generateObstacleSet() {
   const lanes = 4;
   const result = [];
+  const POLICE_SPEED = 12; // Fastest
+  const RED_SPEED = 8;     // Medium
+  const BROWN_SPEED = 5;   // Slowest
+  
   for (let i = 0; i < lanes; i++) {
     const direction = i % 2 === 0 ? "down" : "up";
     for (let j = 0; j < OBSTACLES_PER_LANE; j++) {
-      // const speed = 2 + Math.random() * 4;
-      const speed = 5 + Math.random() * 10;
-      const color = speed >= 12 ? "yellow" : speed <= 10 ? "blue" : "#ff5252";
+      // Randomly assign car colors: 1/3 chance for each type
+      const color = Math.random() < 0.33 ? "yellow" : Math.random() < 0.5 ? "#ff5252" : "brown";
+      // Assign speed based on color
+      const speed = color === "yellow" ? POLICE_SPEED : color === "#ff5252" ? RED_SPEED : BROWN_SPEED;
+      
       const x = OBSTACLE_POSITIONS[i] - OBSTACLE_WIDTH / 2 + j * SIDE_OFFSET;
       const y =
         direction === "down"
@@ -247,11 +253,11 @@ function generateObstacleSet() {
 
 function finishMinigame(roomId, order, room) {
   const tileRewards = {};
-
   order.forEach((player, index) => {
     tileRewards[player] = Math.max(4 - index, 1);
   });
 
+  // Add any players not in the order (shouldn't happen, but for safety)
   const unfinished = room.players
     .map((p) => p.name)
     .filter((name) => !order.includes(name));
@@ -263,18 +269,34 @@ function finishMinigame(roomId, order, room) {
 
   room._tileRewards = tileRewards;
 
-console.log(`[SERVER] Emitting redirectToResults to room ${roomId}`);
-io.to(roomId).emit("redirectToResults");
+  // First emit results to all clients
+  io.to(roomId).emit("mg1Results", { finishOrder: order, tileRewards });
+  console.log(`[RESULTS] Sent for room ${roomId}:`, tileRewards);
 
-  setTimeout(() => {
-      io.to(roomId).emit("mg1Results", { finishOrder: order, tileRewards });
-      console.log(`[RESULTS] Sent for room ${roomId}:`, tileRewards);
-  }, 1500); // 3 seconds before redirecting
+  // Wait for all players to acknowledge seeing results before transitioning
+  if (!readyForResultsMap.has(roomId)) {
+    readyForResultsMap.set(roomId, new Set());
+  }
+}
 
-  // Cleanup
+function startGameLoop(roomId) {
+  const room = activeRooms.get(roomId);
+  if (!room) return;
+
+  // Reset minigame state for this room
   mg1FinishOrders.delete(roomId);
   mg1FinishTimers.delete(roomId);
+
+  // Select a random minigame (currently only minigame1)
+  const selectedMinigame = "minigame1";
+  console.log(`[SERVER] Starting game loop with minigame: ${selectedMinigame}`);
+
+  // Transition players to the tutorial for the selected minigame
+  io.to(roomId).emit("transitionToTutorial", { minigame: selectedMinigame });
 }
+
+// Add synchronization maps
+const readyForResultsMap = new Map(); // Map<roomId, Set<username>>
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {
@@ -471,12 +493,13 @@ io.on("connection", (socket) => {
       board: room.board,
       currentTurn: 0,
     });
+
+    // Start the game loop
+    startGameLoop(roomId);
   });
 
   socket.on("placeToken", ({ roomId, x, y, tokenType, playerIdx }) => {
-    console.log(
-      `[SERVER] Received placeToken: room=${roomId}, (${x}, ${y}) => ${tokenType}, from player ${playerIdx}`
-    );
+    console.log(`[SERVER] Received placeToken: room=${roomId}, (${x}, ${y}) => ${tokenType}, from player ${playerIdx}`);
 
     const room = activeRooms.get(roomId);
     if (!room) {
@@ -526,22 +549,28 @@ io.on("connection", (socket) => {
       const index = cornerPositions.indexOf(cornerKey);
       if (index !== -1 && room.players[index]) {
         const victim = room.players[index];
-        victim.alive = false; // optional if you want to mark as dead
+        victim.alive = false; // Mark as eliminated
         io.to(roomId).emit("boomTriggered", {
           playerName: victim.name,
         });
+        // --- FIX: If the eliminated player is the current turn, advance turn ---
+        if (room.gameState.currentTurn === index || !room.players[room.gameState.currentTurn].alive) {
+          const total = room.players.length;
+          for (let i = 1; i <= total; i++) {
+            const nextIdx = (room.gameState.currentTurn + i) % total;
+            const nextPlayer = room.players[nextIdx];
+            if (nextPlayer && nextPlayer.alive && nextPlayer.tokens > 0) {
+              room.gameState.currentTurn = nextIdx;
+              break;
+            }
+          }
+        }
       } else {
         console.warn("Corner reached but player not found:", cornerKey);
         io.to(roomId).emit("boomTriggered", {
           playerName: "Unknown (unassigned corner)",
         });
       }
-      const bombSound = document.getElementById('bombTrigSound');
-        if (bombSound) {
-            bombSound.volume = 0.2;
-            bombSound.currentTime = 0;
-            bombSound.play();
-        }
     }
 
     const player = room.players[playerIdx];
@@ -584,15 +613,31 @@ io.on("connection", (socket) => {
     io.in(roomId)
       .allSockets()
       .then((sockets) => {
-        console.log(
-          `[DEBUG] Emitted gameUpdate to room ${roomId} with sockets:`,
-          [...sockets]
-        );
+        console.log(`[DEBUG] Emitted gameUpdate to room ${roomId} with sockets:`, [...sockets]);
       });
 
-    console.log(
-      `[DEBUG] gameUpdate sent – currentTurn: ${room.gameState.currentTurn}`
-    );
+    console.log(`[DEBUG] gameUpdate sent – currentTurn: ${room.gameState.currentTurn}`);
+
+    // --- WIN CONDITION: If only one alive player remains, end the game ---
+    const alivePlayers = room.players.filter(p => p.alive);
+    if (alivePlayers.length === 1) {
+      const winner = alivePlayers[0];
+      io.to(roomId).emit("gameOver", { winner: winner.name, avatar: winner.avatar });
+      return; // Stop further processing
+    }
+
+    // Check for end-of-round conditions
+    const allPlayersHaveZeroTokens = room.players.every(p => p.tokens === 0);
+    const noPlayerDied = !cornerReached;
+
+    if ((noPlayerDied && allPlayersHaveZeroTokens) || (cornerReached && allPlayersHaveZeroTokens)) {
+      console.log(`[SERVER] Board round ended for room ${roomId}`);
+      io.to(roomId).emit("boardRoundEnd", {
+        board: room.board,
+        players: room.players,
+      });
+      startGameLoop(roomId);
+    }
   });
 
   socket.on("leaveRoom", ({ roomId, username }) => {
@@ -676,7 +721,7 @@ io.on("connection", (socket) => {
     order.push(username);
     console.log(`[RANKING] ${username} finished in position ${order.length}`);
 
-    // First finisher triggers timer
+    // Only start the timer after the FIRST player finishes
     if (order.length === 1) {
       io.to(roomId).emit("mg1StartTimer", {
         duration: TIME_OUT_DURATION,
@@ -684,48 +729,98 @@ io.on("connection", (socket) => {
       });
 
       const timer = setTimeout(() => {
-        finishMinigame(roomId, order, room); // ✅ make sure you call this here too
+        finishMinigame(roomId, order, room); // End after timer
       }, TIME_OUT_DURATION * 1000); // Convert seconds to milliseconds
 
       mg1FinishTimers.set(roomId, timer);
     }
 
-    // If all players finished before timeout, end early
+    // If all players finished before timeout, end early (use all players, not just alive)
     if (order.length === room.players.length) {
       clearTimeout(mg1FinishTimers.get(roomId));
-      finishMinigame(roomId, order, room); // ✅ early finish path
+      finishMinigame(roomId, order, room); // Early finish path
     }
   });
 
   socket.on("resultsSeen", ({ roomId, username }) => {
-    if (!resultsSeenMap.has(roomId)) {
-      resultsSeenMap.set(roomId, new Set());
+    if (!readyForResultsMap.has(roomId)) {
+      readyForResultsMap.set(roomId, new Set());
     }
-    const seenSet = resultsSeenMap.get(roomId);
-    seenSet.add(username);
-
+    const set = readyForResultsMap.get(roomId);
+    set.add(username);
     const room = activeRooms.get(roomId);
-    const totalPlayers = room?.players.length || 0;
+    const alivePlayers = room?.players.filter(p => p.alive) || [];
+    
+    if (set.size === alivePlayers.length) {
+      // All alive players have seen results, transition to board
+      console.log(`[SERVER] All players have seen results, transitioning to board for room ${roomId}`);
 
-    if (seenSet.size >= totalPlayers) {
-      console.log(`[SYNC] All players saw results for ${roomId}`);
-      resultsSeenMap.delete(roomId);
+      // --- FIX: Update player tokens for new board round ---
+      if (room && room._tileRewards) {
+        room.players.forEach(player => {
+          const reward = room._tileRewards[player.name];
+          player.tokens = reward ?? 0;
+          player.initialTiles = reward ?? 0;
+        });
+      }
+      // -----------------------------------------------------
 
-      const tileRewards = room._tileRewards || {};
-      log(
-        `[SYNC] Broadcasting startGameFromServer for room ${roomId} with tileRewards:`,
-        tileRewards
-      );
-      io.to(roomId).emit("startGameFromServer", { tileRewards });
-
-      delete room._tileRewards; // Clean up after use
+      io.to(roomId).emit("transitionToMainBoard");
+      readyForResultsMap.delete(roomId);
     }
+  });
+
+  socket.on("boardRoundEndAck", ({ roomId }) => {
+    const room = activeRooms.get(roomId);
+    if (!room) return;
+    // Check if only one player is alive
+    const alivePlayers = room.players.filter(p => p.alive);
+    if (alivePlayers.length === 1) {
+      io.to(roomId).emit("gameOver", { winner: alivePlayers[0].name });
+      return;
+    }
+    // Otherwise, start the next round with tutorial
+    io.to(roomId).emit("transitionToTutorial", { minigame: "minigame1" });
+  });
+
+  socket.on("tutorialComplete", ({ roomId }) => {
+    console.log(`[SERVER] Tutorial completed for room ${roomId}`);
+    // Transition to minigame1 after tutorial
+    io.to(roomId).emit("transitionToMinigame", { minigame: "minigame1" });
   });
 
   socket.on("disconnect", () => {
     const roomId = socketToRoomMap.get(socket.id);
     socketToRoomMap.delete(socket.id);
     console.log("User disconnected:", socket.id);
+
+    // Handle disconnect during minigame
+    if (roomId && mg1FinishOrders.has(roomId)) {
+      const room = activeRooms.get(roomId);
+      if (room) {
+        // Find the username for this socket
+        const player = room.players.find(p => p.socketId === socket.id);
+        if (player && player.alive) {
+          // If no one has finished yet, just mark as eliminated
+          const order = mg1FinishOrders.get(roomId);
+          if (order.length === 0) {
+            player.alive = false;
+            console.log(`[DISCONNECT] Marked ${player.name} as eliminated (disconnect before finish)`);
+          } else {
+            // If at least one has finished, mark as finished in last place
+            if (!order.includes(player.name)) {
+              order.push(player.name);
+              console.log(`[DISCONNECT] Marked ${player.name} as finished (disconnect)`);
+              // If all players finished, end minigame
+              if (order.length === room.players.filter(p => p.alive).length) {
+                clearTimeout(mg1FinishTimers.get(roomId));
+                finishMinigame(roomId, order, room);
+              }
+            }
+          }
+        }
+      }
+    }
   });
 });
 
