@@ -115,6 +115,7 @@
           : "https://cs247.onrender.com";
       const socket = io(SERVER_URL);
       const roomId = localStorage.getItem("roomPassword");
+      const username = localStorage.getItem("username");
 
       socket.on("connect", () => {
         console.log("[CLIENT] connected as", socket.id);
@@ -127,8 +128,14 @@
       });
       socket.on("voteComplete", ({ action }) => {
         voteEl.textContent = "";
-        if (action === "nextTut") advance();
-        else if (action === "skipTut") goMinigame();
+        if (action === "nextTut") {
+          advance();
+          if (current >= steps.length) {
+            socket.emit("tutorialComplete", { roomId });
+          }
+        } else if (action === "skipTut") {
+          socket.emit("tutorialComplete", { roomId });
+        }
       });
 
       let current = 0;
@@ -137,11 +144,9 @@
       }
       function advance() {
         current++;
-        if (current >= steps.length) goMinigame();
-        else show(current);
-      }
-      function goMinigame() {
-        location.href = "mg1/minigame1_index.html";
+        if (current < steps.length) {
+          show(current);
+        }
       }
 
       nextBtn.addEventListener("click", () =>
@@ -156,7 +161,11 @@
             music.play().catch(err => console.warn("Autoplay blocked:", err));
         }
         }, { once: true });
-          show(current);
+
+      socket.on('transitionToMinigame', ({ minigame }) => {
+        console.log(`[DEBUG] Received transitionToMinigame for`, { roomId, username, minigame });
+        window.location.href = "mg1/minigame1_index.html";
+      });
     </script>
   </body>
 </html>

@@ -330,6 +330,18 @@ document.addEventListener("DOMContentLoaded", () => {
       debugLog("Room error received:", message);
       showJoinError(message);
     });
+    socket.on("transitionToTutorial", ({ minigame }) => {
+      console.log(`[CLIENT] Transitioning to tutorial for minigame: ${minigame}`);
+      window.location.href = "tutorial.html";
+    });
+    socket.on("transitionToMinigame", ({ minigame }) => {
+      console.log(`[CLIENT] Transitioning to minigame: ${minigame}`);
+      window.location.href = "mg1/minigame1_index.html";
+    });
+    socket.on("transitionToMainBoard", () => {
+      console.log("[CLIENT] Transitioning to main board");
+      window.location.href = "game-board.html";
+    });
   }
 
   backToOptions.addEventListener("click", () => {

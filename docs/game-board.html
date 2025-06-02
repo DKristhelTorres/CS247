@@ -140,6 +140,10 @@
             border: 2px solid #1a237e;
             color: #111;
         }
+        .player-card-vertical.eliminated {
+            filter: grayscale(0.8) brightness(0.7);
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
@@ -244,24 +248,15 @@
 
 
         socket.on('gameUpdate', ({ board: newBoard, players: updatedPlayers, currentTurn }) => {
-            const myName = localStorage.getItem('username');
-            console.log(`[CLIENT ${myName}] Received gameUpdate with currentTurn=${currentTurn}`);
-            console.log(`[CLIENT ${myName}] Board state:\n`, JSON.stringify(newBoard));
-
-
-            // Fix: ensure deep copy of the board so renderBoard picks up changes
+            // Always update the global players variable from the server!
             board = newBoard.map(row => [...row]);
-
-            players = updatedPlayers;
+            players = updatedPlayers; // <-- Always trust the server!
             currentPlayerIdx = currentTurn;
-
-            myPlayerIdx = players.findIndex(p => p.name === myName);
-            console.log("Updated myPlayerIdx:", myPlayerIdx, "currentTurn:", currentTurn);
-
-            renderPlayerCardsVertical();
-            console.log("[CLIENT] Board before rendering", board);
+            myPlayerIdx = players.findIndex(p => p.name === localStorage.getItem('username'));
+            // Store the latest player state for results page
+            localStorage.setItem('lastPlayersState', JSON.stringify(players));
+            renderPlayerCardsVertical(); // Always re-render after update
             renderBoard();
-            renderTokenTray();
 
             const warningEl = document.getElementById('turn-warning');
             const currentPlayer = players[currentPlayerIdx];
@@ -277,7 +272,6 @@
                 warningEl.textContent = `⏳ ${currentPlayer.name}'s turn — they have ${tilesLeft}/${totalTiles} tiles left`;
                 warningEl.style.color = '#ffcc00';
             }
-
         });
 
         socket.on('mg1Results', ({ tileRewards }) => {
@@ -343,7 +337,99 @@
         // }
     });
 
+    socket.on('boardRoundEnd', ({ board, players }) => {
+        // Save the most updated board and player state
+        localStorage.setItem('lastBoardState', JSON.stringify(board));
+        localStorage.setItem('lastPlayersState', JSON.stringify(players));
 
+        // Show a 5-second countdown before next minigame
+        let countdown = 5;
+        const warningEl = document.getElementById('turn-warning');
+        warningEl.textContent = `Next minigame in ${countdown}...`;
+        warningEl.style.color = '#00ff88';
+        const interval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                warningEl.textContent = `Next minigame in ${countdown}...`;
+            } else {
+                clearInterval(interval);
+                warningEl.textContent = 'Transitioning to next minigame...';
+                // Notify server that board round is acknowledged and ready for next minigame
+                const roomId = localStorage.getItem('roomPassword');
+                socket.emit('boardRoundEndAck', { roomId });
+            }
+        }, 1000);
+    });
+
+    socket.on('nextMinigameCountdown', ({ seconds }) => {
+        const warningEl = document.getElementById('turn-warning');
+        let countdown = seconds;
+        warningEl.textContent = `Next minigame in ${countdown}...`;
+        warningEl.style.color = '#00ff88';
+        const interval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                warningEl.textContent = `Next minigame in ${countdown}...`;
+            } else {
+                clearInterval(interval);
+                warningEl.textContent = 'Transitioning to next minigame...';
+            }
+        }, 1000);
+    });
+
+    socket.on('gameOver', ({ winner, avatar }) => {
+        // Create a modal overlay
+        const modal = document.createElement('div');
+        modal.style.position = 'fixed';
+        modal.style.top = 0;
+        modal.style.left = 0;
+        modal.style.width = '100vw';
+        modal.style.height = '100vh';
+        modal.style.background = 'rgba(0,0,0,0.85)';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.zIndex = 9999;
+
+        const winnerBox = document.createElement('div');
+        winnerBox.style.background = '#222';
+        winnerBox.style.borderRadius = '16px';
+        winnerBox.style.padding = '40px 60px';
+        winnerBox.style.display = 'flex';
+        winnerBox.style.flexDirection = 'column';
+        winnerBox.style.alignItems = 'center';
+        winnerBox.style.boxShadow = '0 0 32px #000a';
+
+        const winnerImg = document.createElement('img');
+        winnerImg.src = `images/${avatar}`;
+        winnerImg.alt = `${winner}'s avatar`;
+        winnerImg.style.width = '120px';
+        winnerImg.style.height = '120px';
+        winnerImg.style.borderRadius = '50%';
+        winnerImg.style.background = '#fff';
+        winnerImg.style.objectFit = 'cover';
+        winnerImg.style.boxShadow = '0 0 16px #FFD700';
+        winnerBox.appendChild(winnerImg);
+
+        const winnerText = document.createElement('div');
+        winnerText.style.color = '#FFD700';
+        winnerText.style.fontWeight = 'bold';
+        winnerText.style.fontSize = '2.2em';
+        winnerText.style.marginTop = '24px';
+        winnerText.textContent = `🏆 Winner: ${winner} 🏆`;
+        winnerBox.appendChild(winnerText);
+
+        modal.appendChild(winnerBox);
+        document.body.appendChild(modal);
+    });
+
+    socket.on('transitionToTutorial', ({ minigame }) => {
+        window.location.href = "tutorial.html";
+    });
+    socket.on('transitionToMinigame', ({ minigame }) => {
+        window.location.href = "mg1/minigame1_index.html";
+    });
 
         const N = 7;
         let board = Array.from({length: N}, () => Array(N).fill(null));
@@ -364,11 +450,9 @@
         ];
         // Render player cards vertically on the left
         function renderPlayerCardsVertical() {
-            console.log("DEBUG: players array in renderPlayerCardsVertical", players);
             const playerListVertical = document.getElementById('player-list-vertical');
             playerListVertical.innerHTML = '';
             let displayPlayers = players.filter(Boolean);
-            console.log('Number of players (status):', displayPlayers.length, displayPlayers);
             if (!displayPlayers || displayPlayers.length === 0) {
                 const emptyState = document.createElement('div');
                 emptyState.style.textAlign = 'center';
@@ -378,7 +462,6 @@
                 playerListVertical.appendChild(emptyState);
                 return;
             }
-            // Render a card for every player (up to 4)
             displayPlayers.slice(0, 4).forEach((player, idx) => {
                 const playerCard = document.createElement('div');
                 playerCard.className = `player-card-vertical${player.alive ? '' : ' eliminated'}`;
@@ -387,25 +470,12 @@
                 playerCard.style.alignItems = 'center';
                 playerCard.style.gap = '16px';
                 playerCard.style.padding = '16px';
-                // playerCard.innerHTML = `
-                //     <div style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;">
-                //         <img src="images/${player.avatar}" alt="Avatar" class="avatar" style="width:64px;height:64px;border-radius:50%;background:#fff;object-fit:cover;box-shadow:0 0 8px #0007;">
-                //         <div style="color:#fff;text-align:center;width:100%;">
-                //             <div class="player-name" style="font-weight:bold;font-size:1.2em;margin-bottom:4px;">${player.name}${idx === currentPlayerIdx ? ' <span style=\'font-weight:bold\'>(Turn)</span>' : ''}</div>
-                //             <div class="player-status" style="font-size:0.9em;opacity:0.8;">${player.alive ? 'Alive' : 'Eliminated'}</div>
-                //             <div class="player-tokens" style="font-size:0.9em;opacity:0.8;">Tokens: ${player.tokens}</div>
-                //         </div>
-                //     </div>
-                // `;
                 const container = document.createElement('div');
                 container.style.display = 'flex';
                 container.style.flexDirection = 'column';
                 container.style.alignItems = 'center';
                 container.style.gap = '8px';
                 container.style.width = '100%';
-
-                // Avatar image
-                console.log(` Avatar for ${player.name}:`, player.avatar);
                 const avatarImg = document.createElement('img');
                 avatarImg.src = `images/${player.avatar}`;
                 avatarImg.alt = `${player.name}'s avatar`;
@@ -416,13 +486,10 @@
                 avatarImg.style.objectFit = 'cover';
                 avatarImg.style.boxShadow = '0 0 8px #0007';
                 container.appendChild(avatarImg);
-
-                // Text info
                 const textDiv = document.createElement('div');
                 textDiv.style.color = '#fff';
                 textDiv.style.textAlign = 'center';
                 textDiv.style.width = '100%';
-
                 const nameDiv = document.createElement('div');
                 nameDiv.className = 'player-name';
                 nameDiv.style.fontWeight = 'bold';
@@ -430,24 +497,20 @@
                 nameDiv.style.marginBottom = '4px';
                 nameDiv.innerHTML = `${player.name}${idx === currentPlayerIdx ? ' <span style="font-weight:bold">(Turn)</span>' : ''}`;
                 textDiv.appendChild(nameDiv);
-
                 const statusDiv = document.createElement('div');
                 statusDiv.className = 'player-status';
                 statusDiv.style.fontSize = '0.9em';
                 statusDiv.style.opacity = '0.8';
-                statusDiv.innerText = player.alive ? 'Alive' : 'Eliminated';
+                statusDiv.innerText = player.alive ? 'Alive' : 'Dead';
                 textDiv.appendChild(statusDiv);
-
                 const tokensDiv = document.createElement('div');
                 tokensDiv.className = 'player-tokens';
                 tokensDiv.style.fontSize = '0.9em';
                 tokensDiv.style.opacity = '0.8';
                 tokensDiv.innerText = `Tokens: ${player.tokens}`;
                 textDiv.appendChild(tokensDiv);
-
                 container.appendChild(textDiv);
                 playerCard.appendChild(container);
-
                 playerListVertical.appendChild(playerCard);
             });
         }
@@ -526,6 +589,7 @@
                                 selectedToken &&
                                 players[myPlayerIdx]?.tokens > 0 &&
                                 myPlayerIdx === currentPlayerIdx &&
+                                players[myPlayerIdx]?.alive &&
                                 !isCenter && !isCorner
                             ) {
                                 board[y][x] = selectedToken.symbol;

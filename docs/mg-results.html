@@ -99,108 +99,64 @@
     let username = localStorage.getItem("username");
     const roomId = localStorage.getItem("roomPassword");
 
+    function renderResults(finishOrder, tileRewards) {
+      const podium = document.getElementById("podium");
+      // Get the latest player list with avatars
+      const players = JSON.parse(localStorage.getItem('lastPlayersState') || '[]');
+      // Helper to get avatar by name
+      function getAvatar(name) {
+        const p = players.find(p => p.name === name);
+        return p ? `images/${p.avatar}` : 'images/default.png';
+      }
+      podium.innerHTML = finishOrder
+        .map((name, i) => {
+          const reward = tileRewards[name];
+          const medal = i < 3 ? ['🥇', '🥈', '🥉'][i] : '';
+          const status = i === finishOrder.length - 1 ? 
+            '<span style="color:#888;font-size:0.8em">(DNF)</span>' : '';
+          // Use correct avatar
+          const avatarUrl = getAvatar(name);
+          return `
+            <div class="podium-slot podium-rank-${i + 1}">
+              <div>${medal}</div>
+              <img class="player-sprite" src="${avatarUrl}" alt="avatar" />
+              <div class="podium-base">#${i + 1}</div>
+              <div class="player-name">${name}</div>
+              <div class="tile-reward">+${reward} tiles ${status}</div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    // Render from localStorage on load (for reloads)
+    const lastResults = localStorage.getItem("mg1Results");
+    if (lastResults) {
+      const { finishOrder, tileRewards } = JSON.parse(lastResults);
+      renderResults(finishOrder, tileRewards);
+    }
+
     // Fallback guest name (after connect)
     socket.on("connect", () => {
       if (!username) {
         username = "Guest_" + socket.id.slice(-4);
       }
       if (roomId) {
-        console.log(`[RESULTS] Joining vote room ${roomId} as ${username}`);
         socket.emit("joinVoteRoom", roomId);
       }
     });
-    console.log("Waiting for mg1Results...");
 
     // Render podium when results arrive
     socket.on("mg1Results", ({ finishOrder, tileRewards }) => {
-      console.log("[CLIENT] mg1Results received!", finishOrder, tileRewards);
-      localStorage.setItem("mg1_tileRewards", JSON.stringify(tileRewards));
-      const podium = document.getElementById("podium");
-      podium.innerHTML = "";
-
-      const medals = ["🥇", "🥈", "🥉"];
-
-      finishOrder.forEach((name, idx) => {
-        const playerIdx = (idx % 4) + 1;
-
-        const slot = document.createElement("div");
-        slot.className = "podium-slot";
-        if (idx < 3) {
-          slot.classList.add(`podium-rank-${idx + 1}`);
-        }
-
-        // Add medal for top 3
-        if (idx < 3) {
-          const medal = document.createElement("div");
-          medal.textContent = medals[idx];
-          medal.style.fontSize = "1.6rem";
-          medal.style.marginBottom = "6px";
-          slot.appendChild(medal);
-        }
-
-        // Sprite image
-        const sprite = document.createElement("img");
-        sprite.src = `images/Player${playerIdx}.png`;
-        sprite.alt = name;
-        sprite.className = "player-sprite";
-        slot.appendChild(sprite);
-
-        // Podium base for top 3 only
-        if (idx < 3) {
-          const base = document.createElement("div");
-          base.className = "podium-base";
-          base.textContent = `#${idx + 1}`; // Show the number
-          base.style.fontWeight = "bold";
-          base.style.color = "black";
-          slot.appendChild(base);
-        }
-
-        const label = document.createElement("div");
-        label.className = "player-name";
-        label.textContent = name;
-        slot.appendChild(label);
-
-        const reward = document.createElement("div");
-        reward.className = "tile-reward";
-        reward.textContent = `+${tileRewards[name]} tiles`;
-        slot.appendChild(reward);
-
-        podium.appendChild(slot);
-      });
+      localStorage.setItem("mg1Results", JSON.stringify({ finishOrder, tileRewards }));
+      renderResults(finishOrder, tileRewards);
+      // Play podium sound
+      const podiumSound = document.getElementById("podiumSound");
+      if (podiumSound) {
+        podiumSound.volume = 0.3;
+        podiumSound.play().catch(err => console.warn("Audio play failed:", err));
+      }
     });
-
-
-    //   finishOrder.forEach((name, idx) => {
-    //     const playerIdx = (idx % 4) + 1;
-
-    //     const slot = document.createElement("div");
-    //     slot.className = `podium-slot podium-rank-${idx + 1}`;
-
-    //     const sprite = document.createElement("img");
-    //     console.log("Loading sprite from:", sprite.src);
-    //     sprite.src = `images/Player${playerIdx}.png`;
-    //     sprite.alt = name;
-    //     sprite.className = "player-sprite";
-
-    //     const base = document.createElement("div");
-    //     base.className = "podium-base";
-
-    //     const label = document.createElement("div");
-    //     label.className = "player-name";
-    //     label.textContent = name;
-
-    //     const reward = document.createElement("div");
-    //     reward.className = "tile-reward";
-    //     reward.textContent = `+${tileRewards[name]} tiles`;
-
-    //     slot.appendChild(sprite);
-    //     slot.appendChild(base);
-    //     slot.appendChild(label);
-    //     slot.appendChild(reward);
-
-    //     podium.appendChild(slot);
-    //   });
-    // });
 
     // Continue button
     const continueBtn = document.getElementById("continue-btn");
@@ -211,17 +167,15 @@
     });
 
     // Redirect once all players are ready
-    socket.on("startGameFromServer", ({ tileRewards }) => {
-      console.log("[RESULTS] startGameFromServer", tileRewards);
-      localStorage.setItem("mg1_tileRewards", JSON.stringify(tileRewards));
+    socket.on("transitionToMainBoard", () => {
       window.location.href = "game-board.html";
     });
 
-  window.addEventListener('click', () => {
-    const music = document.getElementById('podiumSound');
-    if (music && music.paused) {
+    window.addEventListener('click', () => {
+      const music = document.getElementById('podiumSound');
+      if (music && music.paused) {
         music.play().catch(err => console.warn("Autoplay blocked:", err));
-    }
+      }
     }, { once: true });
   </script>
 </body>
