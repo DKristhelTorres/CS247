@@ -1,185 +1,238 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🏆 Minigame Results</title>
-  <style>
-    body {
-      background: #f8f8f8;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 40px;
-    }
-
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 20px;
-    }
-
-    #podium {
-      display: flex;
-      justify-content: center;
-      align-items: flex-end;
-      height: 300px;
-      margin-top: 30px;
-      gap: 40px;
-    }
-
-    .podium-slot {
-      text-align: center;
-      position: relative;
-      width: 120px;
-    }
-
-    .podium-base {
-      background: gold;
-      width: 100%;
-      border-radius: 8px 8px 0 0;
-      padding: 10px;
-      box-shadow: 0 5px 10px rgba(0,0,0,0.2);
-    }
-
-    .podium-rank-1 .podium-base { height: 150px; background: #ffd700; }
-    .podium-rank-2 .podium-base { height: 100px; background: #c0c0c0; }
-    .podium-rank-3 .podium-base { height: 75px; background: #cd7f32; }
-
-    .player-sprite {
-      width: 80px;
-      height: 80px;
-      object-fit: contain;
-      margin-bottom: 10px;
-    }
-
-    .player-name {
-      font-weight: bold;
-    }
-
-    .tile-reward {
-      font-size: 0.9em;
-      color: #555;
-    }
-
-    #continue-btn {
-      margin-top: 40px;
-      padding: 10px 20px;
-      font-size: 1rem;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      background: #eee;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    #continue-btn:disabled {
-      background: #ddd;
-      color: #666;
-      cursor: wait;
-    }
-
-    #continue-btn:hover:enabled {
-      background: #ddd;
-    }
-  </style>
-</head>
-<body>
-  <audio id="podiumSound" src="sounds/bg_podium.mp3"></audio>
-  <h1>🏆 Minigame Results</h1>
-  <div id="podium">Waiting for results...</div>
-  <button id="continue-btn">Continue</button>
-
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script>
-    const SERVER_URL = location.hostname === "localhost"
-      ? "http://localhost:3000"
-      : "https://cs247.onrender.com";
-
-    const socket = io(SERVER_URL);
-    let username = localStorage.getItem("username");
-    const roomId = localStorage.getItem("roomPassword");
-
-    function renderResults(finishOrder, tileRewards) {
-      const podium = document.getElementById("podium");
-      // Get the latest player list with avatars
-      const players = JSON.parse(localStorage.getItem('lastPlayersState') || '[]');
-      // Helper to get avatar by name
-      function getAvatar(name) {
-        const p = players.find(p => p.name === name);
-        return p ? `images/${p.avatar}` : 'images/default.png';
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🏆 Minigame Results</title>
+    <style>
+      body {
+        background: #f8f8f8;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin: 0;
+        padding: 40px;
       }
-      podium.innerHTML = finishOrder
-        .map((name, i) => {
-          const reward = tileRewards[name];
-          const medal = i < 3 ? ['🥇', '🥈', '🥉'][i] : '';
-          const status = i === finishOrder.length - 1 ? 
-            '<span style="color:#888;font-size:0.8em">(DNF)</span>' : '';
-          // Use correct avatar
-          const avatarUrl = getAvatar(name);
-          return `
-            <div class="podium-slot podium-rank-${i + 1}">
+
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+      }
+
+      #podium {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        height: 300px;
+        margin-top: 30px;
+        gap: 40px;
+      }
+
+      .podium-slot {
+        text-align: center;
+        position: relative;
+        width: 120px;
+      }
+
+      .podium-base {
+        background: gold;
+        width: 100%;
+        border-radius: 8px 8px 0 0;
+        padding: 10px;
+        box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      .podium-rank-1 .podium-base {
+        height: 150px;
+        background: #ffd700;
+      }
+      .podium-rank-2 .podium-base {
+        height: 100px;
+        background: #c0c0c0;
+      }
+      .podium-rank-3 .podium-base {
+        height: 75px;
+        background: #cd7f32;
+      }
+
+      .player-sprite {
+        width: 80px;
+        height: 80px;
+        object-fit: contain;
+        margin-bottom: 10px;
+      }
+
+      .player-name {
+        font-weight: bold;
+      }
+
+      .tile-reward {
+        font-size: 0.9em;
+        color: #555;
+      }
+
+      #continue-btn {
+        margin-top: 40px;
+        padding: 10px 20px;
+        font-size: 1rem;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        background: #eee;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      #continue-btn:disabled {
+        background: #ddd;
+        color: #666;
+        cursor: wait;
+      }
+
+      #continue-btn:hover:enabled {
+        background: #ddd;
+      }
+    </style>
+  </head>
+  <body>
+    <audio id="podiumSound" src="sounds/bg_podium.mp3"></audio>
+    <h1>🏆 Minigame Results</h1>
+    <div id="podium">Waiting for results...</div>
+    <button id="continue-btn">Continue</button>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+      const SERVER_URL =
+        location.hostname === "localhost"
+          ? "http://localhost:3000"
+          : "https://cs247.onrender.com";
+
+      const socket = io(SERVER_URL);
+      let username = localStorage.getItem("username");
+      const roomId = localStorage.getItem("roomPassword");
+
+      function renderResults(finishOrder, tileRewards) {
+        const podium = document.getElementById("podium");
+        // Get the latest player list with avatars and alive status
+        const players = JSON.parse(
+          localStorage.getItem("lastPlayersState") || "[]"
+        );
+
+        // Helper to get avatar and status by name
+        function getPlayerInfo(name) {
+          const p = players.find((p) => p.name === name);
+          return {
+            avatar: p ? `images/${p.avatar}` : "images/default.png",
+            alive: p ? p.alive : true,
+          };
+        }
+
+        podium.innerHTML = finishOrder
+          .map((name, i) => {
+            const reward = tileRewards[name];
+            const medal = i < 3 ? ["🥇", "🥈", "🥉"][i] : "";
+            const playerInfo = getPlayerInfo(name);
+
+            // Special handling for dead players
+            let status = "";
+            let extraStyle = "";
+            if (!playerInfo.alive) {
+              status =
+                '<span style="color:#ff6b6b;font-size:0.8em">(💀 DEAD - No tiles)</span>';
+              extraStyle =
+                "filter: grayscale(0.8) brightness(0.6); opacity: 0.8;";
+            } else if (i === finishOrder.length - 1 && reward === 1) {
+              status = '<span style="color:#888;font-size:0.8em">(DNF)</span>';
+            }
+
+            return `
+            <div class="podium-slot podium-rank-${i + 1}" style="${extraStyle}">
               <div>${medal}</div>
-              <img class="player-sprite" src="${avatarUrl}" alt="avatar" />
+              <img class="player-sprite" src="${
+                playerInfo.avatar
+              }" alt="avatar" />
               <div class="podium-base">#${i + 1}</div>
               <div class="player-name">${name}</div>
               <div class="tile-reward">+${reward} tiles ${status}</div>
             </div>
           `;
-        })
-        .join("");
-    }
-
-    // Render from localStorage on load (for reloads)
-    const lastResults = localStorage.getItem("mg1Results");
-    if (lastResults) {
-      const { finishOrder, tileRewards } = JSON.parse(lastResults);
-      renderResults(finishOrder, tileRewards);
-    }
-
-    // Fallback guest name (after connect)
-    socket.on("connect", () => {
-      if (!username) {
-        username = "Guest_" + socket.id.slice(-4);
+          })
+          .join("");
       }
-      if (roomId) {
-        socket.emit("joinVoteRoom", roomId);
+
+      // Render from localStorage on load (for reloads)
+      const lastResults = localStorage.getItem("mg1Results");
+      if (lastResults) {
+        const { finishOrder, tileRewards } = JSON.parse(lastResults);
+        renderResults(finishOrder, tileRewards);
       }
-    });
 
-    // Render podium when results arrive
-    socket.on("mg1Results", ({ finishOrder, tileRewards }) => {
-      localStorage.setItem("mg1Results", JSON.stringify({ finishOrder, tileRewards }));
-      renderResults(finishOrder, tileRewards);
-      // Play podium sound
-      const podiumSound = document.getElementById("podiumSound");
-      if (podiumSound) {
-        podiumSound.volume = 0.3;
-        podiumSound.play().catch(err => console.warn("Audio play failed:", err));
-      }
-    });
+      // Fallback guest name (after connect)
+      socket.on("connect", () => {
+        if (!username) {
+          username = "Guest_" + socket.id.slice(-4);
+        }
+        if (roomId) {
+          socket.emit("joinVoteRoom", roomId);
+        }
+      });
 
-    // Continue button
-    const continueBtn = document.getElementById("continue-btn");
-    continueBtn.addEventListener("click", () => {
-      continueBtn.disabled = true;
-      continueBtn.textContent = "⏳ Waiting for other players...";
-      socket.emit("resultsSeen", { roomId, username });
-    });
+      // Render podium when results arrive
+      socket.on("mg1Results", ({ finishOrder, tileRewards }) => {
+        localStorage.setItem(
+          "mg1Results",
+          JSON.stringify({ finishOrder, tileRewards })
+        );
+        renderResults(finishOrder, tileRewards);
 
-    // Redirect once all players are ready
-    socket.on("transitionToMainBoard", () => {
-      window.location.href = "game-board.html";
-    });
+        // Play podium sound for everyone (including dead players)
+        const podiumSound = document.getElementById("podiumSound");
+        if (podiumSound) {
+          podiumSound.volume = 0.3;
+          podiumSound
+            .play()
+            .catch((err) => console.warn("Audio play failed:", err));
+        }
+      });
 
-    window.addEventListener('click', () => {
-      const music = document.getElementById('podiumSound');
-      if (music && music.paused) {
-        music.play().catch(err => console.warn("Autoplay blocked:", err));
-      }
-    }, { once: true });
-  </script>
-</body>
+      // Continue button
+      const continueBtn = document.getElementById("continue-btn");
+      continueBtn.addEventListener("click", () => {
+        continueBtn.disabled = true;
+        continueBtn.textContent = "⏳ Waiting for other players...";
+
+        // Dead players can also acknowledge results
+        socket.emit("resultsSeen", { roomId, username });
+      });
+
+      // Redirect once all players are ready
+      socket.on("transitionToMainBoard", () => {
+        window.location.href = "game-board.html";
+      });
+
+      socket.on("syncPlayerState", ({ players, gameState }) => {
+        console.log("[RESULTS SYNC] Received updated player state:", players);
+
+        // Update localStorage with fresh state
+        localStorage.setItem("lastPlayersState", JSON.stringify(players));
+        localStorage.setItem("gameState", JSON.stringify(gameState));
+
+        // Re-render results if they're already displayed
+        const lastResults = localStorage.getItem("mg1Results");
+        if (lastResults) {
+          const { finishOrder, tileRewards } = JSON.parse(lastResults);
+          renderResults(finishOrder, tileRewards);
+        }
+      });
+
+      window.addEventListener(
+        "click",
+        () => {
+          const music = document.getElementById("podiumSound");
+          if (music && music.paused) {
+            music.play().catch((err) => console.warn("Autoplay blocked:", err));
+          }
+        },
+        { once: true }
+      );
+    </script>
+  </body>
 </html>
-
-
-

@@ -155,16 +155,31 @@
       skipBtn.addEventListener("click", () =>
         socket.emit("vote", { roomId, action: "skipTut" })
       );
-      window.addEventListener('click', () => {
-        const music = document.getElementById('pigeonNightmare');
-        if (music && music.paused) {
-            music.play().catch(err => console.warn("Autoplay blocked:", err));
-        }
-        }, { once: true });
+      window.addEventListener(
+        "click",
+        () => {
+          const music = document.getElementById("pigeonNightmare");
+          if (music && music.paused) {
+            music.play().catch((err) => console.warn("Autoplay blocked:", err));
+          }
+        },
+        { once: true }
+      );
 
-      socket.on('transitionToMinigame', ({ minigame }) => {
-        console.log(`[DEBUG] Received transitionToMinigame for`, { roomId, username, minigame });
+      socket.on("transitionToMinigame", ({ minigame }) => {
+        console.log(`[DEBUG] Received transitionToMinigame for`, {
+          roomId,
+          username,
+          minigame,
+        });
         window.location.href = "mg1/minigame1_index.html";
+      });
+      socket.on("syncPlayerState", ({ players, gameState }) => {
+        console.log("[TUTORIAL SYNC] Received updated player state:", players);
+
+        // Update localStorage with fresh state
+        localStorage.setItem("lastPlayersState", JSON.stringify(players));
+        localStorage.setItem("gameState", JSON.stringify(gameState));
       });
     </script>
   </body>
