@@ -941,12 +941,24 @@ function update() {
 }
 
 function checkCollision(a, b) {
-  return (
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
-  );
+  // how many pixels we want to “shrink” each side of the pigeon’s box:
+  const pad = 16;
+
+  // compute a smaller “effective” rectangle for pigeon a:
+  const ax1 = a.x + pad;
+  const ay1 = a.y + pad;
+  const ax2 = a.x + a.width - pad;
+  const ay2 = a.y + a.height - pad;
+
+  // optionally, you can also shrink the car’s box by a smaller amount:
+  const bPad = 4;
+  const bx1 = b.x + bPad;
+  const by1 = b.y + bPad;
+  const bx2 = b.x + b.width - bPad;
+  const by2 = b.y + b.height - bPad;
+
+  // now do the standard AABB test on these shrunken rectangles:
+  return ax1 < bx2 && ax2 > bx1 && ay1 < by2 && ay2 > by1;
 }
 
 // --- MAIN LOOP & INIT ---

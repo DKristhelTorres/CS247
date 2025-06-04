@@ -389,7 +389,11 @@ function finishMinigame(roomId, order, room) {
 
   // Give rewards to players who finished
   order.forEach((player, index) => {
-    tileRewards[player] = Math.max(4 - index, 1);
+    if (index === 0) {
+      tileRewards[player] = 3;
+    } else {
+      tileRewards[player] = 2;
+    }
   });
 
   // Give minimal rewards to alive players who didn't finish
