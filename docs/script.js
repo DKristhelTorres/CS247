@@ -134,14 +134,14 @@ document.addEventListener("DOMContentLoaded", () => {
   playButton.addEventListener("click", () => {
     switchMenu(mainMenu, usernameMenu);
     setRandomUsername();
-    setAvatar(0);
+    // setAvatar(0);
     hideTitleAndDescription();
   });
 
   randomUsernameBtn.addEventListener("click", setRandomUsername);
-  randomAvatarBtn.addEventListener("click", () => {
-    setAvatar(currentAvatarIdx + 1);
-  });
+  // randomAvatarBtn.addEventListener("click", () => {
+  //   setAvatar(currentAvatarIdx + 1);
+  // });
 
   usernameStartBtn.addEventListener("click", () => {
     const name = usernameInput.value.trim();
