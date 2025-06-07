@@ -178,7 +178,7 @@
         box-shadow: 0 0 12px #000a;
       "
     ></div>
-    <button onclick="renderBoard()">Force Re-Render</button>
+    <!-- <button onclick="renderBoard()">Force Re-Render</button> -->
     <script>
       console.log(
         "username in localStorage is",
@@ -198,10 +198,6 @@
           ? "http://localhost:3000"
           : "https://cs247.onrender.com";
       const socket = io(SERVER_URL);
-
-      // socket.onAny((event, ...args) => {
-      //     console.log(`[SOCKET DEBUG] Event received: ${event}`, args);
-      // });
 
       socket.on("gameStarted", ({ board: newBoard, players, currentTurn }) => {
         console.log("SOCKET gameStarted players:", players);
@@ -224,19 +220,6 @@
             };
           }
         });
-        // const tileRewards = JSON.parse(localStorage.getItem('mg1_tileRewards') || '{}');
-        // console.log("[TILE REWARDS DEBUG]", tileRewards);
-
-        // players.forEach(p => {
-        //     const reward = tileRewards[p.name];
-        //     if (reward === undefined) {
-        //         console.warn(`No reward found for ${p.name}, defaulting to 0`);
-        //     }
-        //     const finalReward = reward ?? 0;
-        //     console.log(`Assigning ${finalReward} tiles to ${p.name}`);
-        //     p.tokens = finalReward;
-        //     p.initialTiles = finalReward;
-        // });
 
         currentPlayerIdx = currentTurn;
         const myName = localStorage.getItem("username");
@@ -333,19 +316,6 @@
         }
       });
 
-      // setTimeout(() => {
-      //     const tileRewardsStr = localStorage.getItem('mg1_tileRewards');
-      //     if (tileRewardsStr) {
-      //         try {
-      //             const tileRewards = JSON.parse(tileRewardsStr);
-      //             console.log('[AUTO] Parsed tileRewards:', tileRewards);
-      //             socket.emit('startGame', { roomId, tileRewards });
-      //         } catch (err) {
-      //             console.error('[AUTO] Failed to parse tileRewards:', tileRewardsStr);
-      //         }
-      //     }
-      // }, 300);
-
       socket.on("boomTriggered", ({ playerName }) => {
         setTimeout(() => {
           // Create a modal overlay similar to the game over modal
@@ -419,28 +389,8 @@
             }
           }, 8000);
         }, 100); // delay to ensure render completes first
-
-        // Keep the bomb sound effect
-        // const bombSound = document.getElementById('bombTrigSound');
-        // if (bombSound) {
-        //     bombSound.volume = 0.2;
-        //     bombSound.currentTime = 0;
-        //     bombSound.play();
-        // }
       });
-      // socket.on("boomTriggered", ({ playerName }) => {
-      //   setTimeout(() => {
-      //     alert(`💥 BOOM! ${playerName} is dead!`);
-      //   }, 100); // delay to ensure render completes first
-
-      //   // const bombSound = document.getElementById('bombTrigSound');
-      //   // if (bombSound) {
-      //   //     bombSound.volume = 0.2;
-      //   //     bombSound.currentTime = 0;
-      //   //     bombSound.play();
-      //   // }
-      // });
-
+      
       socket.on("boardRoundEnd", ({ board, players }) => {
         // Save the most updated board and player state
         localStorage.setItem("lastBoardState", JSON.stringify(board));
@@ -921,8 +871,6 @@
       fetchPlayersForRoom();
 
       // Immediately show game board
-      //   renderPlayerCardsVertical();
-      //   renderBoard();
       renderTokenTray();
 
       window.addEventListener(
