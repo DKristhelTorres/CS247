@@ -392,20 +392,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // copyPassword.addEventListener('click', () => {
-  //     navigator.clipboard.writeText(roomPassword.textContent)
-  //         .then(() => {
-  //             const originalText = copyPassword.textContent;
-  //             copyPassword.textContent = 'Copied!';
-  //             setTimeout(() => {
-  //                 copyPassword.textContent = originalText;
-  //             }, 2000);
-  //         })
-  //         .catch(err => {
-  //             console.error('Failed to copy password:', err);
-  //         });
-  // });
-
   function showJoinError(message) {
     let errorDiv = document.getElementById("join-error");
     if (!errorDiv) {

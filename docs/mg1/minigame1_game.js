@@ -1024,10 +1024,24 @@ window.onload = () => {
       myPlayerIndex = null;
 
       // Create pigeons for alive players only
-      players.forEach((name, idx) => {
-        createPigeon(idx, name);
+      // players.forEach((name, idx) => {
+      //   createPigeon(idx, name);
+      //   if (name === myUsername && !isSpectator) {
+      //     myPlayerIndex = idx;
+      //   }
+      // });
+      const allPlayers = JSON.parse(localStorage.getItem("lastPlayersState") || "[]");
+
+      console.log("[DEBUG] players in mg1Init:", players);
+      console.log("[DEBUG] allPlayers from localStorage:", allPlayers);
+      players.forEach((name) => {
+        const fullIndex = allPlayers.findIndex((p) => p.name === name);
+        const spriteIdx = fullIndex !== -1 ? fullIndex : 0; // fallback if somehow missing
+
+        createPigeon(spriteIdx, name);
+
         if (name === myUsername && !isSpectator) {
-          myPlayerIndex = idx;
+          myPlayerIndex = pigeons.length - 1;
         }
       });
 
@@ -1039,10 +1053,10 @@ window.onload = () => {
         `[DEBUG] myPlayerIndex: ${myPlayerIndex}, isSpectator: ${isSpectator}`
       );
 
-      // Get all players (alive and dead) for sidebar
-      const allPlayers = JSON.parse(
-        localStorage.getItem("lastPlayersState") || "[]"
-      );
+      // // Get all players (alive and dead) for sidebar
+      // const allPlayers = JSON.parse(
+      //   localStorage.getItem("lastPlayersState") || "[]"
+      // );
 
       // If we don't have saved state, create from available data
       if (allPlayers.length === 0) {

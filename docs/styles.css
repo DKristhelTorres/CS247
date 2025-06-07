@@ -313,7 +313,7 @@ h2 {
 #username-menu {
     align-items: center;
     justify-content: center;
-    margin-top: -20vh !important;
+    margin-top: -10vh !important;
 }
 
 .main-title {
@@ -374,3 +374,19 @@ h2 {
   font-size: 1.2rem;
 }
 
+.main-title, .main-description {
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+#main-menu {
+  background: rgba(0, 0, 0, 0.5); /* darker */
+  border-radius: 16px;
+  padding: 2em;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+.btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
