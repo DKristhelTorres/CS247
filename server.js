@@ -599,21 +599,6 @@ io.on("connection", (socket) => {
     room.board[6][0] = "┼";
     room.board[6][6] = "┼";
     room.board[3][3] = "┼"; // center tile
-    // const ranked = [...room.players].sort((a, b) => (room.gameState.scores[b.name] || 0) - (room.gameState.scores[a.name] || 0));
-    // const tileCounts = [3, 2, 1, 0];
-
-    // ranked.forEach((p, i) => {
-    //     const rp = room.players.find(player => player.name === p.name);
-    //     if (rp) rp.tokens = tileCounts[i] || 0;
-    // });
-    // ranked.forEach((p, i) => {
-    //     const rp = room.players.find(player => player.name === p.name);
-    //     if (rp) {
-    //         const assigned = tileCounts[i] || 0;
-    //         rp.tokens = assigned;
-    //         rp.initialTiles = assigned;
-    //     }
-    // });
 
     if (tileRewards) {
       console.log("[START GAME] Using tileRewards:", tileRewards);
